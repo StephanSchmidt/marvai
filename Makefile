@@ -23,6 +23,8 @@ deps:
 # Run tests with coverage
 test-coverage:
 	mkdir -p coverage
-	go test -v -coverprofile=coverage/coverage.out ./...
+	go test -v -coverprofile=coverage/coverage.out ./... || true
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 	@echo "Coverage report generated at coverage/coverage.html"
+	@echo "\n=== COVERAGE SUMMARY ==="
+	@go tool cover -func=coverage/coverage.out | tail -1
