@@ -57,7 +57,7 @@
 				
 				<option value="file0">marvai/cmd/marvai/main.go (0.0%)</option>
 				
-				<option value="file1">marvai/internal/marvai/marvai.go (92.5%)</option>
+				<option value="file1">marvai/internal/marvai/marvai.go (22.0%)</option>
 				
 				<option value="file2">marvai/main.go (0.0%)</option>
 				
@@ -95,14 +95,18 @@ func main() <span class="cov0" title="0">{
 		<pre class="file" id="file1" style="display: none">package marvai
 
 import (
+        "bufio"
         "fmt"
         "io"
         "os"
         "os/exec"
         "path/filepath"
         "runtime"
+        "strings"
 
+        "github.com/aymerick/raymond"
         "github.com/spf13/afero"
+        "gopkg.in/yaml.v3"
 )
 
 // CommandRunner interface for abstracting command execution
@@ -114,11 +118,11 @@ type CommandRunner interface {
 // OSCommandRunner implements CommandRunner using real OS commands
 type OSCommandRunner struct{}
 
-func (o OSCommandRunner) Command(name string, arg ...string) *exec.Cmd <span class="cov8" title="1">{
+func (o OSCommandRunner) Command(name string, arg ...string) *exec.Cmd <span class="cov0" title="0">{
         return exec.Command(name, arg...)
 }</span>
 
-func (o OSCommandRunner) LookPath(file string) (string, error) <span class="cov8" title="1">{
+func (o OSCommandRunner) LookPath(file string) (string, error) <span class="cov0" title="0">{
         return exec.LookPath(file)
 }</span>
 
@@ -161,7 +165,7 @@ func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, 
 }
 
 // FindClaudeBinary finds the Claude binary using OS defaults
-func FindClaudeBinary() string <span class="cov8" title="1">{
+func FindClaudeBinary() string <span class="cov0" title="0">{
         homeDir, _ := os.UserHomeDir()
         return FindClaudeBinaryWithRunner(OSCommandRunner{}, afero.NewOsFs(), runtime.GOOS, homeDir)
 }</span>
@@ -173,13 +177,13 @@ func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) <span class="cov
 }</span>
 
 // RunWithPromptAndRunner executes Claude with a prompt using dependency injection for testing
-func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner, stdout, stderr io.Writer) error <span class="cov8" title="1">{
+func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner, stdout, stderr io.Writer) error <span class="cov0" title="0">{
         content, err := LoadPrompt(fs, promptName)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("error reading file: %w", err)
         }</span>
 
-        <span class="cov8" title="1">claudePath := FindClaudeBinary()
+        <span class="cov0" title="0">claudePath := FindClaudeBinary()
         cmd := runner.Command(claudePath)
         cmd.Stdout = stdout
         cmd.Stderr = stderr
@@ -189,36 +193,194 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
                 return fmt.Errorf("error creating stdin pipe: %w", err)
         }</span>
 
-        <span class="cov8" title="1">if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("error starting claude: %w", err)
         }</span>
 
-        <span class="cov8" title="1">go func() </span><span class="cov8" title="1">{
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 defer stdin.Close()
                 stdin.Write(content)
         }</span>()
 
-        <span class="cov8" title="1">if err := cmd.Wait(); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := cmd.Wait(); err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("error running claude: %w", err)
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov0" title="0">return nil</span>
 }
 
 // RunWithPrompt executes Claude with a prompt using OS defaults
-func RunWithPrompt(fs afero.Fs, promptName string) error <span class="cov8" title="1">{
+func RunWithPrompt(fs afero.Fs, promptName string) error <span class="cov0" title="0">{
         return RunWithPromptAndRunner(fs, promptName, OSCommandRunner{}, os.Stdout, os.Stderr)
 }</span>
+
+// WizardVariable represents a variable in the wizard section
+type WizardVariable struct {
+        ID       string `yaml:"id"`
+        Question string `yaml:"question"`
+        Type     string `yaml:"type"`
+        Required bool   `yaml:"required"`
+}
+
+// MPromptData represents the parsed .mprompt file
+type MPromptData struct {
+        Variables []WizardVariable
+        Template  string
+}
+
+// ParseMPrompt parses a .mprompt file and separates wizard and template sections
+func ParseMPrompt(fs afero.Fs, filename string) (*MPromptData, error) <span class="cov0" title="0">{
+        content, err := afero.ReadFile(fs, filename)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error reading .mprompt file: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">lines := strings.Split(string(content), "\n")
+        var wizardLines []string
+        var templateLines []string
+        var inTemplate bool
+
+        for _, line := range lines </span><span class="cov0" title="0">{
+                if strings.TrimSpace(line) == "--" </span><span class="cov0" title="0">{
+                        inTemplate = true
+                        continue</span>
+                }
+                
+                <span class="cov0" title="0">if inTemplate </span><span class="cov0" title="0">{
+                        templateLines = append(templateLines, line)
+                }</span> else<span class="cov0" title="0"> {
+                        wizardLines = append(wizardLines, line)
+                }</span>
+        }
+
+        <span class="cov0" title="0">var variables []WizardVariable
+        if len(wizardLines) &gt; 0 </span><span class="cov0" title="0">{
+                wizardYaml := strings.Join(wizardLines, "\n")
+                if err := yaml.Unmarshal([]byte(wizardYaml), &amp;variables); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("error parsing wizard YAML: %w", err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">template := strings.Join(templateLines, "\n")
+        template = strings.TrimSpace(template)
+
+        return &amp;MPromptData{
+                Variables: variables,
+                Template:  template,
+        }, nil</span>
+}
+
+// ExecuteWizard prompts the user for variable values
+func ExecuteWizard(variables []WizardVariable) (map[string]string, error) <span class="cov0" title="0">{
+        values := make(map[string]string)
+        scanner := bufio.NewScanner(os.Stdin)
+
+        for _, variable := range variables </span><span class="cov0" title="0">{
+                fmt.Print(variable.Question + " ")
+                if scanner.Scan() </span><span class="cov0" title="0">{
+                        response := strings.TrimSpace(scanner.Text())
+                        if variable.Required &amp;&amp; response == "" </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("variable '%s' is required", variable.ID)
+                        }</span>
+                        <span class="cov0" title="0">values[variable.ID] = response</span>
+                } else<span class="cov0" title="0"> {
+                        return nil, fmt.Errorf("error reading input for variable '%s'", variable.ID)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return values, nil</span>
+}
+
+// SubstituteVariables uses Handlebars templating to replace variables
+func SubstituteVariables(template string, values map[string]string) (string, error) <span class="cov0" title="0">{
+        // Register helpful custom helpers
+        raymond.RegisterHelper("split", func(str string, separator string) []string </span><span class="cov0" title="0">{
+                if str == "" </span><span class="cov0" title="0">{
+                        return []string{}
+                }</span>
+                <span class="cov0" title="0">parts := strings.Split(str, separator)
+                var result []string
+                for _, part := range parts </span><span class="cov0" title="0">{
+                        if trimmed := strings.TrimSpace(part); trimmed != "" </span><span class="cov0" title="0">{
+                                result = append(result, trimmed)
+                        }</span>
+                }
+                <span class="cov0" title="0">return result</span>
+        })
+
+        <span class="cov0" title="0">result, err := raymond.Render(template, values)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("error rendering template: %w", err)
+        }</span>
+        <span class="cov0" title="0">return result, nil</span>
+}
+
+// InstallMPrompt processes a .mprompt file and creates a .prompt file
+func InstallMPrompt(fs afero.Fs, mpromptName string) error <span class="cov0" title="0">{
+        mpromptFile := mpromptName + ".mprompt"
+        
+        data, err := ParseMPrompt(fs, mpromptFile)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">values, err := ExecuteWizard(data.Variables)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">finalPrompt, err := SubstituteVariables(data.Template, values)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := fs.MkdirAll(".marvai", 0755); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("error creating .marvai directory: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">promptFile := filepath.Join(".marvai", mpromptName+".prompt")
+        if err := afero.WriteFile(fs, promptFile, []byte(finalPrompt), 0644); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("error writing .prompt file: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("Created %s from %s\n", promptFile, mpromptFile)
+        return nil</span>
+}
 
 // Run executes the main application logic
 func Run(args []string, fs afero.Fs, stderr io.Writer) error <span class="cov8" title="1">{
         if len(args) &lt; 2 </span><span class="cov8" title="1">{
-                fmt.Fprintf(stderr, "Usage: %s &lt;prompt-name&gt;\n", args[0])
+                fmt.Fprintf(stderr, "Usage: %s &lt;command&gt; [args...]\n", args[0])
+                fmt.Fprintf(stderr, "Commands:\n")
+                fmt.Fprintf(stderr, "  prompt &lt;name&gt;   - Execute a prompt\n")
+                fmt.Fprintf(stderr, "  install &lt;name&gt;  - Install a .mprompt file\n")
                 return fmt.Errorf("insufficient arguments")
         }</span>
 
-        <span class="cov8" title="1">promptName := args[1]
-        return RunWithPrompt(fs, promptName)</span>
+        <span class="cov8" title="1">command := args[1]
+        
+        switch command </span>{
+        case "prompt":<span class="cov8" title="1">
+                if len(args) &lt; 3 </span><span class="cov8" title="1">{
+                        fmt.Fprintf(stderr, "Usage: %s prompt &lt;prompt-name&gt;\n", args[0])
+                        return fmt.Errorf("prompt name required")
+                }</span>
+                <span class="cov0" title="0">promptName := args[2]
+                return RunWithPrompt(fs, promptName)</span>
+                
+        case "install":<span class="cov8" title="1">
+                if len(args) &lt; 3 </span><span class="cov8" title="1">{
+                        fmt.Fprintf(stderr, "Usage: %s install &lt;mprompt-name&gt;\n", args[0])
+                        return fmt.Errorf("mprompt name required")
+                }</span>
+                <span class="cov0" title="0">mpromptName := args[2]
+                return InstallMPrompt(fs, mpromptName)</span>
+                
+        default:<span class="cov0" title="0">
+                // Backward compatibility: if no command specified, treat as prompt
+                promptName := args[1]
+                return RunWithPrompt(fs, promptName)</span>
+        }
 }</pre>
 		
 		<pre class="file" id="file2" style="display: none">package main

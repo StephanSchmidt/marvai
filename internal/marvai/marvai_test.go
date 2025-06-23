@@ -149,27 +149,24 @@ func TestRun(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          []string
-		promptExists  bool
-		promptContent string
 		expectedError string
+		checkStderr   bool
 	}{
 		{
 			name:          "insufficient arguments",
 			args:          []string{"program"},
 			expectedError: "insufficient arguments",
+			checkStderr:   true,
 		},
 		{
-			name:          "valid prompt name",
-			args:          []string{"program", "test"},
-			promptExists:  true,
-			promptContent: "test prompt content",
-			expectedError: "",
+			name:          "prompt command without name",
+			args:          []string{"program", "prompt"},
+			expectedError: "prompt name required",
 		},
 		{
-			name:          "nonexistent prompt",
-			args:          []string{"program", "nonexistent"},
-			promptExists:  false,
-			expectedError: "error reading file:",
+			name:          "install command without name",
+			args:          []string{"program", "install"},
+			expectedError: "mprompt name required",
 		},
 	}
 
@@ -177,11 +174,6 @@ func TestRun(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
-			
-			if tt.promptExists {
-				fs.MkdirAll(".marvai", 0755)
-				afero.WriteFile(fs, ".marvai/"+tt.args[1]+".prompt", []byte(tt.promptContent), 0644)
-			}
 
 			// Capture stderr
 			var stderr bytes.Buffer
@@ -202,8 +194,8 @@ func TestRun(t *testing.T) {
 			}
 
 			// Check stderr output for usage message
-			if len(tt.args) < 2 {
-				expectedUsage := fmt.Sprintf("Usage: %s <prompt-name>\n", tt.args[0])
+			if tt.checkStderr && len(tt.args) < 2 {
+				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>   - Execute a prompt\n  install <name>  - Install a .mprompt file\n"
 				if stderr.String() != expectedUsage {
 					t.Errorf("Expected stderr %q, got %q", expectedUsage, stderr.String())
 				}

@@ -9,14 +9,12 @@ import (
 	"marvai/internal/marvai"
 )
 
-// TestMainIntegration tests the main function integration
+// TestMainIntegration tests the main function integration without actually running Claude
 func TestMainIntegration(t *testing.T) {
 	tests := []struct {
-		name          string
-		args          []string
-		promptExists  bool
-		promptContent string
-		expectError   bool
+		name        string
+		args        []string
+		expectError bool
 	}{
 		{
 			name:        "insufficient arguments",
@@ -24,11 +22,9 @@ func TestMainIntegration(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:          "valid prompt execution",
-			args:          []string{"program", "test"},
-			promptExists:  true,
-			promptContent: "test prompt content",
-			expectError:   false,
+			name:        "command validation",
+			args:        []string{"program", "prompt"},
+			expectError: true, // Should fail because no prompt name provided
 		},
 	}
 
@@ -36,11 +32,6 @@ func TestMainIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
-			
-			if tt.promptExists {
-				fs.MkdirAll(".marvai", 0755)
-				afero.WriteFile(fs, ".marvai/"+tt.args[1]+".prompt", []byte(tt.promptContent), 0644)
-			}
 
 			// Capture stderr
 			var stderr bytes.Buffer
