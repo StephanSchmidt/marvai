@@ -83,7 +83,7 @@ Say hello
 
 ## Handlebars Templating
 
-The template section supports full [Handlebars](https://handlebarsjs.com/) syntax, including:
+The template section supports:
 
 - **Variables**: `{{variablename}}`
 - **Conditionals**: `{{#if condition}}...{{/if}}`

@@ -1,4 +1,6 @@
 mode: set
+marvai/main.go:12.13,14.59 2 0
+marvai/main.go:14.59,17.3 2 0
 marvai/internal/template.go:17.24,21.23 3 1
 marvai/internal/template.go:21.23,23.3 1 1
 marvai/internal/template.go:26.2,26.78 1 1
@@ -12,8 +14,6 @@ marvai/internal/template.go:40.2,40.26 1 1
 marvai/internal/template.go:44.80,48.16 3 1
 marvai/internal/template.go:48.16,50.3 1 1
 marvai/internal/template.go:51.2,51.20 1 1
-marvai/main.go:12.13,14.59 2 0
-marvai/main.go:14.59,17.3 2 0
 marvai/internal/marvai/marvai.go:28.72,30.2 1 0
 marvai/internal/marvai/marvai.go:32.64,34.2 1 0
 marvai/internal/marvai/marvai.go:37.104,39.56 1 1
