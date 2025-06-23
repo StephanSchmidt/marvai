@@ -19,7 +19,7 @@ A CLI tool for managing and executing prompt templates with interactive wizards.
 Install a `.mprompt` file by running its wizard and generating configuration files.
 
 ```bash
-marvai install example.mprompt
+marvai install example
 # or from URL
 marvai install https://example.com/prompt.mprompt
 ```
@@ -103,7 +103,7 @@ Say {{hi}}
 
 2. Install the prompt:
    ```bash
-   $ marvai install example.mprompt
+   $ marvai install example
    What should I say? hello
    Installed example from example.mprompt
    ```
