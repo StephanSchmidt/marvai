@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
+	"github.com/aymerick/raymond"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 )
@@ -197,20 +197,28 @@ func ExecuteWizard(variables []WizardVariable) (map[string]string, error) {
 	return values, nil
 }
 
-// SubstituteVariables replaces {{variablename}} placeholders in the template
-func SubstituteVariables(template string, values map[string]string) string {
-	result := template
-	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
-	
-	result = re.ReplaceAllStringFunc(result, func(match string) string {
-		varName := re.FindStringSubmatch(match)[1]
-		if value, exists := values[varName]; exists {
-			return value
+// SubstituteVariables uses Handlebars templating to replace variables
+func SubstituteVariables(template string, values map[string]string) (string, error) {
+	// Register helpful custom helpers
+	raymond.RegisterHelper("split", func(str string, separator string) []string {
+		if str == "" {
+			return []string{}
 		}
-		return match
+		parts := strings.Split(str, separator)
+		var result []string
+		for _, part := range parts {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
 	})
-	
-	return result
+
+	result, err := raymond.Render(template, values)
+	if err != nil {
+		return "", fmt.Errorf("error rendering template: %w", err)
+	}
+	return result, nil
 }
 
 // InstallMPrompt processes a .mprompt file and creates a .prompt file
@@ -227,7 +235,10 @@ func InstallMPrompt(fs afero.Fs, mpromptName string) error {
 		return err
 	}
 
-	finalPrompt := SubstituteVariables(data.Template, values)
+	finalPrompt, err := SubstituteVariables(data.Template, values)
+	if err != nil {
+		return err
+	}
 
 	if err := fs.MkdirAll(".marvai", 0755); err != nil {
 		return fmt.Errorf("error creating .marvai directory: %w", err)

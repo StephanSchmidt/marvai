@@ -1,0 +1,29 @@
+- id: name
+  question: "What's your name?"
+  type: string
+  required: true
+- id: items
+  question: "Enter comma-separated items (optional):"
+  type: string
+  required: false
+- id: include_greeting
+  question: "Include greeting? (y/n):"
+  type: string
+  required: false
+--
+{{#if include_greeting}}
+Hello {{name}}! Welcome to the system.
+{{else}}
+{{name}}, here's your information:
+{{/if}}
+
+{{#if items}}
+Your items:
+{{#each (split items ",")}}
+- {{this}}
+{{/each}}
+{{else}}
+No items provided.
+{{/if}}
+
+Thank you for using our service!

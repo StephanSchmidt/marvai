@@ -5,7 +5,7 @@ A CLI tool for managing and executing prompt templates with interactive wizards.
 ## Features
 
 - **Interactive Wizards**: Define variables with questions to prompt users for input
-- **Template Variables**: Use `{{variablename}}` placeholders in your prompts
+- **Handlebars Templates**: Use powerful Handlebars templating with `{{variablename}}` placeholders
 - **Claude Integration**: Execute generated prompts directly with Claude Code
 
 ## Commands
@@ -38,7 +38,7 @@ This will run the generated prompt file through Claude Code.
 A `.mprompt` file contains two sections separated by `--`:
 
 1. **Wizard Section**: YAML configuration for interactive variables
-2. **Template Section**: The prompt template with variable placeholders
+2. **Template Section**: The prompt template using Handlebars syntax with variable placeholders
 
 ### Example
 
@@ -79,6 +79,39 @@ Say {{hi}}
 The generated `.marvai/example.prompt` will contain:
 ```
 Say hello
+```
+
+## Handlebars Templating
+
+The template section supports full [Handlebars](https://handlebarsjs.com/) syntax, including:
+
+- **Variables**: `{{variablename}}`
+- **Conditionals**: `{{#if condition}}...{{/if}}`
+- **Loops**: `{{#each items}}...{{/each}}`
+- **Helpers**: Built-in and custom helpers
+
+### Advanced Example
+
+```yaml
+- id: name
+  question: "What's your name?"
+  type: string
+  required: true
+- id: items
+  question: "Enter comma-separated items:"
+  type: string
+  required: false
+--
+Hello {{name}}!
+
+{{#if items}}
+Here are your items:
+{{#each (split items ",")}}
+- {{this}}
+{{/each}}
+{{else}}
+No items provided.
+{{/if}}
 ```
 
 ## Variable Types
