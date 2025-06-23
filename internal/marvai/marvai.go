@@ -10,9 +10,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/aymerick/raymond"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+	
+	"marvai/internal"
 )
 
 // CommandRunner interface for abstracting command execution
@@ -199,26 +200,7 @@ func ExecuteWizard(variables []WizardVariable) (map[string]string, error) {
 
 // SubstituteVariables uses Handlebars templating to replace variables
 func SubstituteVariables(template string, values map[string]string) (string, error) {
-	// Register helpful custom helpers
-	raymond.RegisterHelper("split", func(str string, separator string) []string {
-		if str == "" {
-			return []string{}
-		}
-		parts := strings.Split(str, separator)
-		var result []string
-		for _, part := range parts {
-			if trimmed := strings.TrimSpace(part); trimmed != "" {
-				result = append(result, trimmed)
-			}
-		}
-		return result
-	})
-
-	result, err := raymond.Render(template, values)
-	if err != nil {
-		return "", fmt.Errorf("error rendering template: %w", err)
-	}
-	return result, nil
+	return internal.RenderTemplate(template, values)
 }
 
 // InstallMPrompt processes a .mprompt file and creates a .prompt file

@@ -57,9 +57,11 @@
 				
 				<option value="file0">marvai/cmd/marvai/main.go (0.0%)</option>
 				
-				<option value="file1">marvai/internal/marvai/marvai.go (22.0%)</option>
+				<option value="file1">marvai/internal/marvai/marvai.go (24.5%)</option>
 				
-				<option value="file2">marvai/main.go (0.0%)</option>
+				<option value="file2">marvai/internal/template.go (100.0%)</option>
+				
+				<option value="file3">marvai/main.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -104,9 +106,10 @@ import (
         "runtime"
         "strings"
 
-        "github.com/aymerick/raymond"
         "github.com/spf13/afero"
         "gopkg.in/yaml.v3"
+        
+        "marvai/internal"
 )
 
 // CommandRunner interface for abstracting command execution
@@ -293,27 +296,8 @@ func ExecuteWizard(variables []WizardVariable) (map[string]string, error) <span 
 
 // SubstituteVariables uses Handlebars templating to replace variables
 func SubstituteVariables(template string, values map[string]string) (string, error) <span class="cov0" title="0">{
-        // Register helpful custom helpers
-        raymond.RegisterHelper("split", func(str string, separator string) []string </span><span class="cov0" title="0">{
-                if str == "" </span><span class="cov0" title="0">{
-                        return []string{}
-                }</span>
-                <span class="cov0" title="0">parts := strings.Split(str, separator)
-                var result []string
-                for _, part := range parts </span><span class="cov0" title="0">{
-                        if trimmed := strings.TrimSpace(part); trimmed != "" </span><span class="cov0" title="0">{
-                                result = append(result, trimmed)
-                        }</span>
-                }
-                <span class="cov0" title="0">return result</span>
-        })
-
-        <span class="cov0" title="0">result, err := raymond.Render(template, values)
-        if err != nil </span><span class="cov0" title="0">{
-                return "", fmt.Errorf("error rendering template: %w", err)
-        }</span>
-        <span class="cov0" title="0">return result, nil</span>
-}
+        return internal.RenderTemplate(template, values)
+}</span>
 
 // InstallMPrompt processes a .mprompt file and creates a .prompt file
 func InstallMPrompt(fs afero.Fs, mpromptName string) error <span class="cov0" title="0">{
@@ -383,7 +367,60 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error <span class="cov8" 
         }
 }</pre>
 		
-		<pre class="file" id="file2" style="display: none">package main
+		<pre class="file" id="file2" style="display: none">package internal
+
+import (
+        "fmt"
+        "strings"
+        "sync"
+
+        "github.com/aymerick/raymond"
+)
+
+var (
+        helpersRegistered bool
+        helpersMutex      sync.Mutex
+)
+
+// RegisterHelpers registers custom Handlebars helpers (only once)
+func RegisterHelpers() <span class="cov8" title="1">{
+        helpersMutex.Lock()
+        defer helpersMutex.Unlock()
+        
+        if helpersRegistered </span><span class="cov8" title="1">{
+                return
+        }</span>
+        
+        // Register helpful custom helpers
+        <span class="cov8" title="1">raymond.RegisterHelper("split", func(str string, separator string) []string </span><span class="cov8" title="1">{
+                if str == "" </span><span class="cov8" title="1">{
+                        return []string{}
+                }</span>
+                <span class="cov8" title="1">parts := strings.Split(str, separator)
+                var result []string
+                for _, part := range parts </span><span class="cov8" title="1">{
+                        if trimmed := strings.TrimSpace(part); trimmed != "" </span><span class="cov8" title="1">{
+                                result = append(result, trimmed)
+                        }</span>
+                }
+                <span class="cov8" title="1">return result</span>
+        })
+        
+        <span class="cov8" title="1">helpersRegistered = true</span>
+}
+
+// RenderTemplate renders a Handlebars template with the given variables
+func RenderTemplate(template string, values map[string]string) (string, error) <span class="cov8" title="1">{
+        RegisterHelpers()
+        
+        result, err := raymond.Render(template, values)
+        if err != nil </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("error rendering template: %w", err)
+        }</span>
+        <span class="cov8" title="1">return result, nil</span>
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
 
 import (
         "fmt"
