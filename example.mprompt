@@ -1,0 +1,6 @@
+- id: hi
+  question: "What should I say?"
+  type: string
+  required: true
+--
+Say {{hi}}

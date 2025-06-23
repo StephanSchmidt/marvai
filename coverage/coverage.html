@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>marvai: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">marvai/cmd/marvai/main.go (0.0%)</option>
+				
+				<option value="file1">marvai/internal/marvai/marvai.go (92.5%)</option>
+				
+				<option value="file2">marvai/main.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "fmt"
+        "os"
+
+        "github.com/spf13/afero"
+
+        "marvai/internal/marvai"
+)
+
+func main() <span class="cov0" title="0">{
+        fs := afero.NewOsFs()
+        if err := marvai.Run(os.Args, fs, os.Stderr); err != nil </span><span class="cov0" title="0">{
+                fmt.Fprintf(os.Stderr, "%v\n", err)
+                os.Exit(1)
+        }</span>
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">package marvai
+
+import (
+        "fmt"
+        "io"
+        "os"
+        "os/exec"
+        "path/filepath"
+        "runtime"
+
+        "github.com/spf13/afero"
+)
+
+// CommandRunner interface for abstracting command execution
+type CommandRunner interface {
+        Command(name string, arg ...string) *exec.Cmd
+        LookPath(file string) (string, error)
+}
+
+// OSCommandRunner implements CommandRunner using real OS commands
+type OSCommandRunner struct{}
+
+func (o OSCommandRunner) Command(name string, arg ...string) *exec.Cmd <span class="cov8" title="1">{
+        return exec.Command(name, arg...)
+}</span>
+
+func (o OSCommandRunner) LookPath(file string) (string, error) <span class="cov8" title="1">{
+        return exec.LookPath(file)
+}</span>
+
+// FindClaudeBinaryWithRunner finds the Claude binary using dependency injection for testing
+func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, homeDir string) string <span class="cov8" title="1">{
+        // Try to find claude in PATH first
+        if path, err := runner.LookPath("claude"); err == nil </span><span class="cov8" title="1">{
+                return path
+        }</span>
+
+        // Common installation paths by OS
+        <span class="cov8" title="1">var candidatePaths []string
+        
+        switch goos </span>{
+        case "darwin":<span class="cov8" title="1">
+                candidatePaths = []string{
+                        "/usr/local/bin/claude",
+                        "/opt/homebrew/bin/claude",
+                        filepath.Join(homeDir, ".local", "bin", "claude"),
+                        "/Applications/Claude.app/Contents/MacOS/claude",
+                }</span>
+        default:<span class="cov8" title="1"> // linux and others
+                candidatePaths = []string{
+                        "/usr/local/bin/claude",
+                        "/usr/bin/claude",
+                        filepath.Join(homeDir, ".local", "bin", "claude"),
+                        filepath.Join(homeDir, "bin", "claude"),
+                }</span>
+        }
+
+        // Check each candidate path
+        <span class="cov8" title="1">for _, path := range candidatePaths </span><span class="cov8" title="1">{
+                if _, err := fs.Stat(path); err == nil </span><span class="cov8" title="1">{
+                        return path
+                }</span>
+        }
+
+        // Fallback to just "claude" if nothing found
+        <span class="cov8" title="1">return "claude"</span>
+}
+
+// FindClaudeBinary finds the Claude binary using OS defaults
+func FindClaudeBinary() string <span class="cov8" title="1">{
+        homeDir, _ := os.UserHomeDir()
+        return FindClaudeBinaryWithRunner(OSCommandRunner{}, afero.NewOsFs(), runtime.GOOS, homeDir)
+}</span>
+
+// LoadPrompt loads a prompt file from the .marvai directory
+func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) <span class="cov8" title="1">{
+        promptFile := filepath.Join(".marvai", promptName+".prompt")
+        return afero.ReadFile(fs, promptFile)
+}</span>
+
+// RunWithPromptAndRunner executes Claude with a prompt using dependency injection for testing
+func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner, stdout, stderr io.Writer) error <span class="cov8" title="1">{
+        content, err := LoadPrompt(fs, promptName)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("error reading file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">claudePath := FindClaudeBinary()
+        cmd := runner.Command(claudePath)
+        cmd.Stdout = stdout
+        cmd.Stderr = stderr
+
+        stdin, err := cmd.StdinPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("error creating stdin pipe: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("error starting claude: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">go func() </span><span class="cov8" title="1">{
+                defer stdin.Close()
+                stdin.Write(content)
+        }</span>()
+
+        <span class="cov8" title="1">if err := cmd.Wait(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("error running claude: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// RunWithPrompt executes Claude with a prompt using OS defaults
+func RunWithPrompt(fs afero.Fs, promptName string) error <span class="cov8" title="1">{
+        return RunWithPromptAndRunner(fs, promptName, OSCommandRunner{}, os.Stdout, os.Stderr)
+}</span>
+
+// Run executes the main application logic
+func Run(args []string, fs afero.Fs, stderr io.Writer) error <span class="cov8" title="1">{
+        if len(args) &lt; 2 </span><span class="cov8" title="1">{
+                fmt.Fprintf(stderr, "Usage: %s &lt;prompt-name&gt;\n", args[0])
+                return fmt.Errorf("insufficient arguments")
+        }</span>
+
+        <span class="cov8" title="1">promptName := args[1]
+        return RunWithPrompt(fs, promptName)</span>
+}</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import (
+        "fmt"
+        "os"
+
+        "github.com/spf13/afero"
+
+        "marvai/internal/marvai"
+)
+
+func main() <span class="cov0" title="0">{
+        fs := afero.NewOsFs()
+        if err := marvai.Run(os.Args, fs, os.Stderr); err != nil </span><span class="cov0" title="0">{
+                fmt.Fprintf(os.Stderr, "%v\n", err)
+                os.Exit(1)
+        }</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
