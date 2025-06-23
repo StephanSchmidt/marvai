@@ -7,7 +7,7 @@ A CLI tool for managing and executing prompt templates with interactive wizards.
 ## Features
 
 - **Interactive Wizards**: Define variables with questions to prompt users for input
-- **Handlebars Templates**: Use powerful Handlebars templating with `{{variablename}}` placeholders
+- **Templates**: Use powerful templating with `{{variablename}}` placeholders
 - **Claude Integration**: Execute generated prompts directly with Claude Code
 
 ## Commands
@@ -40,7 +40,7 @@ This will run the generated prompt file through Claude Code.
 A `.mprompt` file contains two sections separated by `--`:
 
 1. **Wizard Section**: YAML configuration for interactive variables
-2. **Template Section**: The prompt template using Handlebars syntax with variable placeholders
+2. **Template Section**: The prompt template syntax with variable placeholders
 
 ### Example
 
@@ -83,7 +83,7 @@ The generated `.marvai/example.prompt` will contain:
 Say hello
 ```
 
-## Handlebars Templating
+## Templating
 
 The template section supports:
 
