@@ -227,7 +227,7 @@ func TestRun(t *testing.T) {
 
 			// Check stderr output for usage message
 			if tt.checkStderr && len(tt.args) < 2 {
-				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>      - Execute a prompt\n  install <source>   - Install a .mprompt file from local path or HTTPS URL\n  list               - List available .mprompt files in current directory\n"
+				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>      - Execute a prompt\n  install <source>   - Install a .mprompt file from local path or HTTPS URL\n  list               - List available .mprompt files in current directory\n  installed          - List installed prompts in .marvai directory\n"
 				if stderr.String() != expectedUsage {
 					t.Errorf("Expected stderr %q, got %q", expectedUsage, stderr.String())
 				}
@@ -238,34 +238,36 @@ func TestRun(t *testing.T) {
 
 func TestLoadPrompt(t *testing.T) {
 	tests := []struct {
-		name          string
-		promptName    string
-		fileContent   string
-		expectedError bool
+		name           string
+		promptName     string
+		mpromptContent string
+		varContent     string
+		expectedResult string
+		expectedError  bool
 	}{
 		{
-			name:          "load existing prompt",
-			promptName:    "example",
-			fileContent:   "Hello from example prompt",
-			expectedError: false,
+			name:           "load existing prompt without variables",
+			promptName:     "example",
+			mpromptContent: "name: Example\n--\n--\nHello from example prompt",
+			varContent:     "",
+			expectedResult: "Hello from example prompt",
+			expectedError:  false,
 		},
 		{
-			name:          "load prompt with spaces in name",
-			promptName:    "my-prompt",
-			fileContent:   "This is a test prompt with content",
-			expectedError: false,
+			name:           "load prompt with variables",
+			promptName:     "greeting",
+			mpromptContent: "name: Greeting\n--\n- id: name\n  question: \"What is your name?\"\n--\nHello {{name}}!",
+			varContent:     "name: World",
+			expectedResult: "Hello World!",
+			expectedError:  false,
 		},
 		{
-			name:          "load empty prompt",
-			promptName:    "empty",
-			fileContent:   "",
-			expectedError: false,
-		},
-		{
-			name:          "load multiline prompt",
-			promptName:    "multiline",
-			fileContent:   "Line 1\nLine 2\nLine 3",
-			expectedError: false,
+			name:           "load prompt with missing variable file",
+			promptName:     "missing-vars",
+			mpromptContent: "name: Test\n--\n- id: name\n  question: \"What is your name?\"\n--\nHello {{name}}!",
+			varContent:     "", // No .var file created
+			expectedResult: "Hello !", // Empty variable
+			expectedError:  false,
 		},
 	}
 
@@ -280,11 +282,20 @@ func TestLoadPrompt(t *testing.T) {
 				t.Fatalf("Failed to create .marvai directory: %v", err)
 			}
 
-			// Write test file
-			promptFile := ".marvai/" + tt.promptName + ".prompt"
-			err = afero.WriteFile(fs, promptFile, []byte(tt.fileContent), 0644)
+			// Write .mprompt file
+			mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
+			err = afero.WriteFile(fs, mpromptFile, []byte(tt.mpromptContent), 0644)
 			if err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
+				t.Fatalf("Failed to write .mprompt file: %v", err)
+			}
+
+			// Write .var file if provided
+			if tt.varContent != "" {
+				varFile := ".marvai/" + tt.promptName + ".var"
+				err = afero.WriteFile(fs, varFile, []byte(tt.varContent), 0644)
+				if err != nil {
+					t.Fatalf("Failed to write .var file: %v", err)
+				}
 			}
 
 			// Test LoadPrompt function
@@ -296,8 +307,8 @@ func TestLoadPrompt(t *testing.T) {
 			if !tt.expectedError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			if !tt.expectedError && string(content) != tt.fileContent {
-				t.Errorf("Expected content %q, got %q", tt.fileContent, string(content))
+			if !tt.expectedError && string(content) != tt.expectedResult {
+				t.Errorf("Expected content %q, got %q", tt.expectedResult, string(content))
 			}
 		})
 	}
@@ -375,7 +386,9 @@ func TestPromptFilePathConstruction(t *testing.T) {
 			// Create in-memory filesystem with expected file
 			fs := afero.NewMemMapFs()
 			fs.MkdirAll(".marvai", 0755)
-			afero.WriteFile(fs, tt.expected, []byte("test content"), 0644)
+			// Convert .prompt to .mprompt for the new system
+			mpromptPath := strings.Replace(tt.expected, ".prompt", ".mprompt", 1)
+			afero.WriteFile(fs, mpromptPath, []byte("name: Test\n--\n--\ntest content"), 0644)
 
 			// Test that LoadPrompt correctly constructs the path
 			content, err := LoadPrompt(fs, tt.promptName)
@@ -419,8 +432,9 @@ func TestLoadPromptWithSpecialCharacters(t *testing.T) {
 			fs.MkdirAll(".marvai", 0755)
 
 			// Write test file with special content
-			promptFile := ".marvai/" + tt.promptName + ".prompt"
-			err := afero.WriteFile(fs, promptFile, []byte(tt.fileContent), 0644)
+			mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
+			mpromptContent := "name: Test\n--\n--\n" + tt.fileContent
+			err := afero.WriteFile(fs, mpromptFile, []byte(mpromptContent), 0644)
 			if err != nil {
 				t.Fatalf("Failed to write test file: %v", err)
 			}
@@ -497,10 +511,10 @@ func TestLoadPromptDirectoryTraversal(t *testing.T) {
 			// Create .marvai directory
 			fs.MkdirAll(".marvai", 0755)
 			
-			// For valid test cases, create the expected file
+			// For valid test cases, create the expected files
 			if tt.shouldSucceed {
-				promptFile := ".marvai/" + tt.promptName + ".prompt"
-				afero.WriteFile(fs, promptFile, []byte("test content"), 0644)
+				mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
+				afero.WriteFile(fs, mpromptFile, []byte("name: Test\n--\n--\ntest content"), 0644)
 			}
 			
 			// Also create a sensitive file outside the .marvai directory to test traversal
@@ -590,7 +604,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			name: "stdin pipe creation fails",
 			setupFs: func(fs afero.Fs) error {
 				fs.MkdirAll(".marvai", 0755)
-				return afero.WriteFile(fs, ".marvai/test.prompt", []byte("test content"), 0644)
+				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
 				runner := &MockCommandRunner{
@@ -605,7 +619,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			name: "command start fails",
 			setupFs: func(fs afero.Fs) error {
 				fs.MkdirAll(".marvai", 0755)
-				return afero.WriteFile(fs, ".marvai/test.prompt", []byte("test content"), 0644)
+				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
 				return &MockCommandRunner{
@@ -620,7 +634,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			name: "command wait fails",
 			setupFs: func(fs afero.Fs) error {
 				fs.MkdirAll(".marvai", 0755)
-				return afero.WriteFile(fs, ".marvai/test.prompt", []byte("test content"), 0644)
+				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
 				runner := &MockCommandRunner{
@@ -1027,5 +1041,155 @@ Test template`
 
 	if !strings.Contains(actualOutput, "Test Template - A test template (by Test Author)") {
 		t.Errorf("Expected output to contain test file info, got: %q", actualOutput)
+	}
+}
+
+func TestListInstalledPrompts(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupFS        func(afero.Fs) error
+		expectedOutput string
+	}{
+		{
+			name: "no .marvai directory",
+			setupFS: func(fs afero.Fs) error {
+				// Don't create .marvai directory
+				return nil
+			},
+			expectedOutput: "No .marvai directory found. Run 'install' command to install prompts first.\n",
+		},
+		{
+			name: "empty .marvai directory",
+			setupFS: func(fs afero.Fs) error {
+				return fs.MkdirAll(".marvai", 0755)
+			},
+			expectedOutput: "No installed prompts found in .marvai directory\n",
+		},
+		{
+			name: "single installed prompt",
+			setupFS: func(fs afero.Fs) error {
+				if err := fs.MkdirAll(".marvai", 0755); err != nil {
+					return err
+				}
+				return afero.WriteFile(fs, ".marvai/example.mprompt", []byte("name: Example\n--\n--\nTest prompt content"), 0644)
+			},
+			expectedOutput: "Found 1 installed prompt(s):\n  Example\n",
+		},
+		{
+			name: "multiple installed prompts",
+			setupFS: func(fs afero.Fs) error {
+				if err := fs.MkdirAll(".marvai", 0755); err != nil {
+					return err
+				}
+				if err := afero.WriteFile(fs, ".marvai/advanced.mprompt", []byte("name: Advanced\n--\n--\nAdvanced prompt"), 0644); err != nil {
+					return err
+				}
+				if err := afero.WriteFile(fs, ".marvai/advanced.var", []byte("var1: value1"), 0644); err != nil {
+					return err
+				}
+				if err := afero.WriteFile(fs, ".marvai/simple.mprompt", []byte("name: Simple\n--\n--\nSimple prompt"), 0644); err != nil {
+					return err
+				}
+				// Add a non-prompt file to test filtering
+				if err := afero.WriteFile(fs, ".marvai/config.txt", []byte("Config file"), 0644); err != nil {
+					return err
+				}
+				return nil
+			},
+			expectedOutput: "Found 2 installed prompt(s):\n  advanced (configured)\n  simple\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create in-memory filesystem
+			fs := afero.NewMemMapFs()
+
+			// Setup filesystem
+			err := tt.setupFS(fs)
+			if err != nil {
+				t.Fatalf("Failed to setup filesystem: %v", err)
+			}
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Run the installed command
+			err = ListInstalledPrompts(fs)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output
+			output := make([]byte, 1024)
+			n, _ := r.Read(output)
+			actualOutput := string(output[:n])
+
+			// Check for errors
+			if err != nil {
+				t.Errorf("ListInstalledPrompts returned error: %v", err)
+			}
+
+			// Check output
+			if actualOutput != tt.expectedOutput {
+				t.Errorf("Expected output:\n%q\nGot:\n%q", tt.expectedOutput, actualOutput)
+			}
+		})
+	}
+}
+
+func TestInstalledCommand(t *testing.T) {
+	// Create in-memory filesystem
+	fs := afero.NewMemMapFs()
+
+	// Create .marvai directory and install some prompts
+	err := fs.MkdirAll(".marvai", 0755)
+	if err != nil {
+		t.Fatalf("Failed to create .marvai directory: %v", err)
+	}
+
+	err = afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\nTest prompt content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test prompt: %v", err)
+	}
+
+	err = afero.WriteFile(fs, ".marvai/example.mprompt", []byte("name: Example\n--\n--\nExample prompt content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create example prompt: %v", err)
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Test the installed command via Run function
+	var stderr bytes.Buffer
+	err = Run([]string{"program", "installed"}, fs, &stderr)
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	output := make([]byte, 1024)
+	n, _ := r.Read(output)
+	actualOutput := string(output[:n])
+
+	// Check for errors
+	if err != nil {
+		t.Errorf("Run with installed command returned error: %v", err)
+	}
+
+	// Check that we got some output about finding installed prompts
+	if !strings.Contains(actualOutput, "Found 2 installed prompt(s)") {
+		t.Errorf("Expected output to contain prompt count, got: %q", actualOutput)
+	}
+
+	if !strings.Contains(actualOutput, "test") || !strings.Contains(actualOutput, "example") {
+		t.Errorf("Expected output to contain prompt names, got: %q", actualOutput)
 	}
 }
