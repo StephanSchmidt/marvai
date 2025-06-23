@@ -1,4 +1,4 @@
-.PHONY: build test clean
+.PHONY: build test clean release release-dry-run
 
 # Default target
 all: build
@@ -28,3 +28,13 @@ test-coverage:
 	@echo "Coverage report generated at coverage/coverage.html"
 	@echo "\n=== COVERAGE SUMMARY ==="
 	@go tool cover -func=coverage/coverage.out | tail -1
+
+# Release using goreleaser
+release:
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install with: go install github.com/goreleaser/goreleaser@latest" && exit 1)
+	goreleaser release --clean
+
+# Dry run release (build without releasing)
+release-dry-run:
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install with: go install github.com/goreleaser/goreleaser@latest" && exit 1)
+	goreleaser release --snapshot --clean
