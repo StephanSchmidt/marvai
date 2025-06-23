@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -197,7 +198,7 @@ func TestRun(t *testing.T) {
 		{
 			name:          "install command without name",
 			args:          []string{"program", "install"},
-			expectedError: "mprompt name required",
+			expectedError: "mprompt source required",
 		},
 	}
 
@@ -226,7 +227,7 @@ func TestRun(t *testing.T) {
 
 			// Check stderr output for usage message
 			if tt.checkStderr && len(tt.args) < 2 {
-				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>   - Execute a prompt\n  install <name>  - Install a .mprompt file\n"
+				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>      - Execute a prompt\n  install <source>   - Install a .mprompt file from local path or HTTPS URL\n  list               - List available .mprompt files in current directory\n"
 				if stderr.String() != expectedUsage {
 					t.Errorf("Expected stderr %q, got %q", expectedUsage, stderr.String())
 				}
@@ -698,7 +699,10 @@ func TestInstallMPromptDirectoryTraversal(t *testing.T) {
 			
 			// For valid test cases, create the mprompt file
 			if !tt.expectError {
-				mpromptContent := `- id: test
+				mpromptContent := `name: Test Template
+description: A test template
+--
+- id: test
   question: "Test question?"
   type: string
   required: false
@@ -734,7 +738,9 @@ func TestParseMPromptErrorHandling(t *testing.T) {
 	}{
 		{
 			name:        "invalid YAML in wizard section",
-			fileContent: `- id: test
+			fileContent: `name: Test
+--
+- id: test
   question: "Test?"
   invalid_yaml: {]
 --
@@ -744,11 +750,11 @@ Template content`,
 		},
 		{
 			name:        "missing separator",
-			fileContent: `- id: test
-  question: "Test?"
+			fileContent: `name: Test
+description: A test template
 Template without separator`,
-			expectError: true, // Actually should error because YAML is invalid
-			description: "Should handle missing separator",
+			expectError: true, // Invalid YAML in frontmatter should cause error
+			description: "Should handle missing separator with invalid YAML",
 		},
 		{
 			name:        "empty file",
@@ -757,14 +763,14 @@ Template without separator`,
 			description: "Should handle empty files",
 		},
 		{
-			name:        "only separator",
-			fileContent: "--",
+			name:        "only one separator",
+			fileContent: "name: Test\n--",
 			expectError: false,
-			description: "Should handle files with only separator",
+			description: "Should handle files with only one separator",
 		},
 		{
 			name: "extremely large file",
-			fileContent: "- id: test\n  question: \"Test?\"\n--\n" + strings.Repeat("A", 1000000),
+			fileContent: "name: Test\n--\n- id: test\n  question: \"Test?\"\n--\n" + strings.Repeat("A", 1000000),
 			expectError: false,
 			description: "Should handle large files without memory issues",
 		},
@@ -859,5 +865,167 @@ func TestValidatePromptName(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestListMPromptFiles(t *testing.T) {
+	tests := []struct {
+		name          string
+		files         map[string]string // filename -> content
+		expectedOutput string
+	}{
+		{
+			name:  "no mprompt files",
+			files: map[string]string{
+				"readme.txt": "some text",
+				"script.sh":  "#!/bin/bash",
+			},
+			expectedOutput: "No .mprompt files found in current directory\n",
+		},
+		{
+			name: "single mprompt file with variables",
+			files: map[string]string{
+				"example.mprompt": `name: Example Template
+description: A simple example template
+author: Test Author
+--
+- id: name
+  question: "What is your name?"
+  type: string
+  required: true
+--
+Hello {{name}}!`,
+			},
+			expectedOutput: "Found 1 .mprompt file(s):\n  Example Template - A simple example template (by Test Author)\n",
+		},
+		{
+			name: "multiple mprompt files",
+			files: map[string]string{
+				"hello.mprompt": `name: Hello Template
+description: A greeting template
+--
+- id: greeting
+  question: "What greeting?"
+  type: string
+--
+{{greeting}} World!`,
+				"simple.mprompt": `name: Simple Template
+--
+--
+Simple template without variables`,
+				"other.txt": "not an mprompt file",
+			},
+			expectedOutput: "Found 2 .mprompt file(s):\n  Hello Template - A greeting template\n  Simple Template\n",
+		},
+		{
+			name: "mprompt file with description variable",
+			files: map[string]string{
+				"described.mprompt": `name: Described Template
+description: This is a described prompt template
+author: Template Author
+--
+- id: input
+  question: "Enter some input"
+  type: string
+--
+Template content`,
+			},
+			expectedOutput: "Found 1 .mprompt file(s):\n  Described Template - This is a described prompt template (by Template Author)\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create in-memory filesystem
+			fs := afero.NewMemMapFs()
+
+			// Create test files
+			for filename, content := range tt.files {
+				err := afero.WriteFile(fs, filename, []byte(content), 0644)
+				if err != nil {
+					t.Fatalf("Failed to create test file %s: %v", filename, err)
+				}
+			}
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Run the list command
+			err := ListMPromptFiles(fs)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output
+			output := make([]byte, 1024)
+			n, _ := r.Read(output)
+			actualOutput := string(output[:n])
+
+			// Check for errors
+			if err != nil {
+				t.Errorf("ListMPromptFiles returned error: %v", err)
+			}
+
+			// Check output
+			if actualOutput != tt.expectedOutput {
+				t.Errorf("Expected output:\n%q\nGot:\n%q", tt.expectedOutput, actualOutput)
+			}
+		})
+	}
+}
+
+func TestListCommand(t *testing.T) {
+	// Create in-memory filesystem
+	fs := afero.NewMemMapFs()
+
+	// Create test .mprompt file
+	testContent := `name: Test Template
+description: A test template
+author: Test Author
+--
+- id: test
+  question: "Test question?"
+  type: string
+--
+Test template`
+	
+	err := afero.WriteFile(fs, "test.mprompt", []byte(testContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Test the list command via Run function
+	var stderr bytes.Buffer
+	err = Run([]string{"program", "list"}, fs, &stderr)
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	output := make([]byte, 1024)
+	n, _ := r.Read(output)
+	actualOutput := string(output[:n])
+
+	// Check for errors
+	if err != nil {
+		t.Errorf("Run with list command returned error: %v", err)
+	}
+
+	// Check that we got some output about finding mprompt files
+	if !strings.Contains(actualOutput, "Found 1 .mprompt file(s)") {
+		t.Errorf("Expected output to contain file count, got: %q", actualOutput)
+	}
+
+	if !strings.Contains(actualOutput, "Test Template - A test template (by Test Author)") {
+		t.Errorf("Expected output to contain test file info, got: %q", actualOutput)
 	}
 }

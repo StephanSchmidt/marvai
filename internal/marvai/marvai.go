@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 	
 	"marvai/internal"
+	"marvai/internal/source"
 )
 
 // CommandRunner interface for abstracting command execution
@@ -299,10 +300,18 @@ type WizardVariable struct {
 	Required bool   `yaml:"required"`
 }
 
+// MPromptFrontmatter represents the frontmatter section of a .mprompt file
+type MPromptFrontmatter struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Author      string `yaml:"author"`
+}
+
 // MPromptData represents the parsed .mprompt file
 type MPromptData struct {
-	Variables []WizardVariable
-	Template  string
+	Frontmatter MPromptFrontmatter
+	Variables   []WizardVariable
+	Template    string
 }
 
 // ParseMPrompt parses a .mprompt file and separates wizard and template sections with security controls
@@ -322,24 +331,59 @@ func ParseMPrompt(fs afero.Fs, filename string) (*MPromptData, error) {
 		return nil, fmt.Errorf("mprompt file too large (%d bytes), maximum allowed is 10MB", len(content))
 	}
 
+	return ParseMPromptContent(content, filename)
+}
+
+// ParseMPromptContent parses .mprompt content directly (for use with source handlers)
+// Format: frontmatter -- wizard variables -- template
+func ParseMPromptContent(content []byte, displayName string) (*MPromptData, error) {
+	// SECURITY: Limit file size to prevent memory exhaustion  
+	if len(content) > 10*1024*1024 { // 10MB limit
+		return nil, fmt.Errorf("mprompt content too large (%d bytes), maximum allowed is 10MB", len(content))
+	}
+
 	lines := strings.Split(string(content), "\n")
+	var frontmatterLines []string
 	var wizardLines []string
 	var templateLines []string
-	var inTemplate bool
+	
+	section := 0 // 0=frontmatter, 1=wizard, 2=template
 
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "--" {
-			inTemplate = true
+			section++
 			continue
 		}
 		
-		if inTemplate {
-			templateLines = append(templateLines, line)
-		} else {
+		switch section {
+		case 0:
+			frontmatterLines = append(frontmatterLines, line)
+		case 1:
 			wizardLines = append(wizardLines, line)
+		case 2:
+			templateLines = append(templateLines, line)
+		default:
+			// More than 2 separators - treat as part of template
+			templateLines = append(templateLines, line)
 		}
 	}
 
+	// Parse frontmatter
+	var frontmatter MPromptFrontmatter
+	if len(frontmatterLines) > 0 {
+		frontmatterYaml := strings.Join(frontmatterLines, "\n")
+		
+		// SECURITY: Limit YAML size to prevent billion laughs attack
+		if len(frontmatterYaml) > 1024*1024 { // 1MB limit for frontmatter section
+			return nil, fmt.Errorf("frontmatter YAML section too large (%d bytes), maximum allowed is 1MB", len(frontmatterYaml))
+		}
+		
+		if err := yaml.Unmarshal([]byte(frontmatterYaml), &frontmatter); err != nil {
+			return nil, fmt.Errorf("error parsing frontmatter YAML from %s: %w", displayName, err)
+		}
+	}
+
+	// Parse wizard variables
 	var variables []WizardVariable
 	if len(wizardLines) > 0 {
 		wizardYaml := strings.Join(wizardLines, "\n")
@@ -350,21 +394,23 @@ func ParseMPrompt(fs afero.Fs, filename string) (*MPromptData, error) {
 		}
 		
 		if err := yaml.Unmarshal([]byte(wizardYaml), &variables); err != nil {
-			return nil, fmt.Errorf("error parsing wizard YAML: %w", err)
+			return nil, fmt.Errorf("error parsing wizard YAML from %s: %w", displayName, err)
 		}
 		
 		// SECURITY: Validate wizard variables
 		if err := validateWizardVariables(variables); err != nil {
-			return nil, fmt.Errorf("invalid wizard variables: %w", err)
+			return nil, fmt.Errorf("invalid wizard variables in %s: %w", displayName, err)
 		}
 	}
 
+	// Parse template
 	template := strings.Join(templateLines, "\n")
 	template = strings.TrimSpace(template)
 
 	return &MPromptData{
-		Variables: variables,
-		Template:  template,
+		Frontmatter: frontmatter,
+		Variables:   variables,
+		Template:    template,
 	}, nil
 }
 
@@ -474,17 +520,50 @@ func SubstituteVariables(template string, values map[string]string) (string, err
 	return internal.RenderTemplate(template, values)
 }
 
-// InstallMPrompt processes a .mprompt file and creates a .prompt file
-func InstallMPrompt(fs afero.Fs, mpromptName string) error {
-	if err := ValidatePromptName(mpromptName); err != nil {
-		return fmt.Errorf("invalid mprompt name: %w", err)
+// InstallMPrompt processes a .mprompt file from any supported source and creates a .prompt file
+func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
+	// Create source manager
+	sourceManager := source.NewSourceManager(fs)
+	
+	// Load content from source (could be file or HTTPS URL)
+	content, displayName, err := sourceManager.LoadContent(mpromptSource)
+	if err != nil {
+		return fmt.Errorf("failed to load mprompt from source: %w", err)
 	}
 	
-	mpromptFile := mpromptName + ".mprompt"
-	
-	data, err := ParseMPrompt(fs, mpromptFile)
+	// Parse the content
+	data, err := ParseMPromptContent(content, displayName)
 	if err != nil {
 		return err
+	}
+
+	// Determine the prompt name for validation and output file
+	promptName := mpromptSource
+	if strings.HasPrefix(mpromptSource, "https://") {
+		// For URLs, extract filename from path
+		if strings.Contains(mpromptSource, "/") {
+			parts := strings.Split(mpromptSource, "/")
+			promptName = parts[len(parts)-1]
+			// Handle empty filename (URL ends with /)
+			if promptName == "" && len(parts) > 1 {
+				promptName = parts[len(parts)-2]
+			}
+		} else {
+			promptName = "downloaded-prompt"
+		}
+		// If still empty or just a domain, use default
+		if promptName == "" || !strings.Contains(promptName, ".") {
+			promptName = "downloaded-prompt"
+		}
+	}
+	
+	// Remove .mprompt extension if present for validation
+	if strings.HasSuffix(promptName, ".mprompt") {
+		promptName = strings.TrimSuffix(promptName, ".mprompt")
+	}
+	
+	if err := ValidatePromptName(promptName); err != nil {
+		return fmt.Errorf("invalid prompt name derived from source: %w", err)
 	}
 
 	values, err := ExecuteWizard(data.Variables)
@@ -501,13 +580,100 @@ func InstallMPrompt(fs afero.Fs, mpromptName string) error {
 		return fmt.Errorf("error creating .marvai directory: %w", err)
 	}
 
-	promptFile := filepath.Join(".marvai", mpromptName+".prompt")
+	promptFile := filepath.Join(".marvai", promptName+".prompt")
 	if err := afero.WriteFile(fs, promptFile, []byte(finalPrompt), 0644); err != nil {
 		return fmt.Errorf("error writing .prompt file: %w", err)
 	}
 
-	fmt.Printf("Created %s from %s\n", promptFile, mpromptFile)
+	fmt.Printf("Created %s from %s\n", promptFile, displayName)
 	return nil
+}
+
+// ListMPromptFiles scans the current directory for .mprompt files and displays them
+func ListMPromptFiles(fs afero.Fs) error {
+	files, err := afero.ReadDir(fs, ".")
+	if err != nil {
+		return fmt.Errorf("error reading current directory: %w", err)
+	}
+	
+	var mpromptFiles []string
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".mprompt") {
+			mpromptFiles = append(mpromptFiles, file.Name())
+		}
+	}
+	
+	if len(mpromptFiles) == 0 {
+		fmt.Println("No .mprompt files found in current directory")
+		return nil
+	}
+	
+	fmt.Printf("Found %d .mprompt file(s):\n", len(mpromptFiles))
+	for _, file := range mpromptFiles {
+		// Extract the name without .mprompt extension for filename display
+		filename := strings.TrimSuffix(file, ".mprompt")
+		
+		// Get frontmatter information
+		name, description, author := getMPromptInfo(fs, file)
+		
+		// Use frontmatter name if available, otherwise use filename
+		displayName := name
+		if displayName == "" {
+			displayName = filename
+		}
+		
+		// Build the display line
+		line := fmt.Sprintf("  %s", displayName)
+		
+		if description != "" {
+			line += fmt.Sprintf(" - %s", description)
+		}
+		
+		if author != "" {
+			line += fmt.Sprintf(" (by %s)", author)
+		}
+		
+		fmt.Println(line)
+	}
+	
+	return nil
+}
+
+// getMPromptInfo attempts to extract information from the .mprompt file
+func getMPromptInfo(fs afero.Fs, filename string) (name, description, author string) {
+	data, err := ParseMPrompt(fs, filename)
+	if err != nil {
+		return "", "", ""
+	}
+	
+	// Use frontmatter information if available
+	if data.Frontmatter.Name != "" {
+		name = data.Frontmatter.Name
+	}
+	if data.Frontmatter.Description != "" {
+		description = data.Frontmatter.Description
+	}
+	if data.Frontmatter.Author != "" {
+		author = data.Frontmatter.Author
+	}
+	
+	// Fallback to old behavior if no frontmatter description
+	if description == "" && len(data.Variables) > 0 {
+		// Look for a description variable
+		for _, variable := range data.Variables {
+			if variable.ID == "description" {
+				description = variable.Question
+				break
+			}
+		}
+		
+		// Otherwise, show the first variable's question as a hint of what this prompt does
+		if description == "" {
+			description = fmt.Sprintf("Prompts for: %s", data.Variables[0].Question)
+		}
+	}
+	
+	return name, description, author
 }
 
 // Run executes the main application logic
@@ -515,8 +681,9 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 	if len(args) < 2 {
 		fmt.Fprintf(stderr, "Usage: %s <command> [args...]\n", args[0])
 		fmt.Fprintf(stderr, "Commands:\n")
-		fmt.Fprintf(stderr, "  prompt <name>   - Execute a prompt\n")
-		fmt.Fprintf(stderr, "  install <name>  - Install a .mprompt file\n")
+		fmt.Fprintf(stderr, "  prompt <name>      - Execute a prompt\n")
+		fmt.Fprintf(stderr, "  install <source>   - Install a .mprompt file from local path or HTTPS URL\n")
+		fmt.Fprintf(stderr, "  list               - List available .mprompt files in current directory\n")
 		return fmt.Errorf("insufficient arguments")
 	}
 
@@ -533,11 +700,15 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		
 	case "install":
 		if len(args) < 3 {
-			fmt.Fprintf(stderr, "Usage: %s install <mprompt-name>\n", args[0])
-			return fmt.Errorf("mprompt name required")
+			fmt.Fprintf(stderr, "Usage: %s install <source>\n", args[0])
+			fmt.Fprintf(stderr, "  <source> can be a local file name or HTTPS URL\n")
+			return fmt.Errorf("mprompt source required")
 		}
-		mpromptName := args[2]
-		return InstallMPrompt(fs, mpromptName)
+		mpromptSource := args[2]
+		return InstallMPrompt(fs, mpromptSource)
+		
+	case "list":
+		return ListMPromptFiles(fs)
 		
 	default:
 		// Backward compatibility: if no command specified, treat as prompt

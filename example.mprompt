@@ -1,3 +1,7 @@
+name: Example
+description: An example
+author: Stephan Schmidt
+--
 - id: hi
   question: "What should I say?"
   type: string

@@ -1,3 +1,7 @@
+name: Advanced Example
+description: An advanced example
+author: Stephan Schmidt
+--
 - id: name
   question: "What's your name?"
   type: string
