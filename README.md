@@ -12,7 +12,7 @@ A CLI tool for managing and executing prompt templates with interactive wizards.
 - **Templates**: Use powerful templating with `{{variablename}}` placeholders
 - **Claude Integration**: Execute generated prompts directly with Claude Code
 
-## Example
+## 'Hello World' Example
 
 ```bash
 marvai install hello
