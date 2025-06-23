@@ -1,5 +1,7 @@
 # Marvai
 
+![Marvai Logo](https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marv.png)
+
 **!Not safe for production!**
 
 A CLI tool for managing and executing prompt templates with interactive wizards.
