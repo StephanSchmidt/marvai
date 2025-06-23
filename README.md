@@ -12,6 +12,18 @@ A CLI tool for managing and executing prompt templates with interactive wizards.
 - **Templates**: Use powerful templating with `{{variablename}}` placeholders
 - **Claude Integration**: Execute generated prompts directly with Claude Code
 
+## Example
+
+```bash
+marvai install hello
+# will ask you the language
+For what language? Go
+marvai prompt hello 
+# calls claude code with the hello world prompt and generate the hello world
+# in the specified language
+...
+```
+
 ## Commands
 
 ### `marvai install <source>`
