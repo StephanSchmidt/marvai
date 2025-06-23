@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -111,5 +112,125 @@ func TestRegisterHelpers(t *testing.T) {
 	expected := "a-b-c-"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// TestRenderTemplateSecurityIssues tests for template security vulnerabilities
+func TestRenderTemplateSecurityIssues(t *testing.T) {
+	tests := []struct {
+		name        string
+		template    string
+		values      map[string]string
+		expectError bool
+		description string
+	}{
+		{
+			name:        "deeply nested template",
+			template:    strings.Repeat("{{#if true}}", 51) + "deep" + strings.Repeat("{{/if}}", 51),
+			values:      map[string]string{},
+			expectError: true,
+			description: "Should reject deeply nested templates that exceed nesting limit",
+		},
+		{
+			name:        "recursive template attempt",
+			template:    "{{> recursive}}",
+			values:      map[string]string{},
+			expectError: true,
+			description: "Should reject recursive template references",
+		},
+		{
+			name:        "malicious variable names",
+			template:    "{{__proto__}} {{constructor}} {{toString}}",
+			values:      map[string]string{"__proto__": "proto", "constructor": "ctor", "toString": "str"},
+			expectError: true,
+			description: "Should reject templates with dangerous variable names",
+		},
+		{
+			name:        "extremely long variable content",
+			template:    "{{content}}",
+			values:      map[string]string{"content": strings.Repeat("A", 1000000)},
+			expectError: false,
+			description: "Should handle large variable content",
+		},
+		{
+			name:        "template with null bytes",
+			template:    "Hello {{name\x00}}",
+			values:      map[string]string{"name": "test"},
+			expectError: false, // Handlebars library doesn't reject null bytes, which is okay
+			description: "Should handle null bytes in templates",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := RenderTemplate(tt.template, tt.values)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none for template: %q", tt.template)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				// For non-error cases, just check that we got some result
+				if len(result) == 0 && len(tt.template) > 0 {
+					t.Errorf("Expected non-empty result for template: %q", tt.template)
+				}
+			}
+		})
+	}
+}
+
+// TestSplitHelperEdgeCases tests edge cases for the split helper
+func TestSplitHelperEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		values   map[string]string
+		expected string
+	}{
+		{
+			name:     "split with very long separator",
+			template: "{{#each (split items \"=====\")}}{{this}}|{{/each}}",
+			values:   map[string]string{"items": "a=====b=====c"},
+			expected: "a|b|c|",
+		},
+		{
+			name:     "split with special regex characters",
+			template: "{{#each (split items \".*\")}}{{this}}|{{/each}}",
+			values:   map[string]string{"items": "a.*b.*c"},
+			expected: "a|b|c|",
+		},
+		{
+			name:     "split with unicode separator",
+			template: "{{#each (split items \"🌟\")}}{{this}}|{{/each}}",
+			values:   map[string]string{"items": "hello🌟world🌟test"},
+			expected: "hello|world|test|",
+		},
+		{
+			name:     "split with null byte in string",
+			template: "{{#each (split items \",\")}}{{this}}|{{/each}}",
+			values:   map[string]string{"items": "a\x00,b,c"},
+			expected: "a|b|c|",
+		},
+		{
+			name:     "split extremely long input",
+			template: "{{#each (split items \",\")}}x{{/each}}",
+			values:   map[string]string{"items": strings.Repeat("a,", 10000) + "b"},
+			expected: strings.Repeat("x", 10001),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := RenderTemplate(tt.template, tt.values)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
 	}
 }

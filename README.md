@@ -1,5 +1,7 @@
 # Marvai
 
+**!Not safe for production!**
+
 A CLI tool for managing and executing prompt templates with interactive wizards.
 
 ## Features
