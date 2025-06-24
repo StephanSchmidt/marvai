@@ -55,7 +55,7 @@ changelog:
 
 release:
   github:
-    owner: ""
+    owner: "StephanSchmidt"
     name: marvai
   draft: false
   prerelease: auto
