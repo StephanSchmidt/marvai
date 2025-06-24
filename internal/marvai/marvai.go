@@ -344,6 +344,15 @@ type MPromptFrontmatter struct {
 	Version     string `yaml:"version"`
 }
 
+// PromptEntry represents an entry in the PROMPTS manifest file
+type PromptEntry struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Author      string `yaml:"author"`
+	Version     string `yaml:"version"`
+	File        string `yaml:"file"`
+}
+
 // MPromptData represents the parsed .mprompt file
 type MPromptData struct {
 	Frontmatter MPromptFrontmatter
@@ -876,7 +885,7 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 }
 
 // fetchRemotePrompts fetches and parses the PROMPTS file from the remote distro
-func fetchRemotePrompts() ([]string, error) {
+func fetchRemotePrompts() ([]PromptEntry, error) {
 	const promptsURL = "https://distro.marvai.dev/PROMPTS"
 
 	// Create HTTP client with timeout
@@ -909,45 +918,50 @@ func fetchRemotePrompts() ([]string, error) {
 		return nil, fmt.Errorf("remote prompts list too large (%d bytes), maximum allowed is %d bytes", len(content), maxSize)
 	}
 
-	// Parse prompts separated by --
+	// Parse prompt entries separated by --
 	promptsText := string(content)
-	prompts := strings.Split(promptsText, "--")
+	entryTexts := strings.Split(promptsText, "--")
 
-	// Remove empty prompts and trim whitespace
-	var validPrompts []string
-	for _, prompt := range prompts {
-		trimmed := strings.TrimSpace(prompt)
-		if trimmed != "" {
-			validPrompts = append(validPrompts, trimmed)
-		}
-	}
-
-	return validPrompts, nil
-}
-
-// findPromptByName searches for a prompt by name in the list of prompts
-func findPromptByName(prompts []string, name string) (string, error) {
-	name = strings.ToLower(strings.TrimSpace(name))
-	
-	for _, promptContent := range prompts {
-		// Parse each prompt to extract metadata
-		data, err := ParseMPromptContent([]byte(promptContent), "remote-prompt")
-		if err != nil {
+	// Parse each entry as YAML
+	var promptEntries []PromptEntry
+	for _, entryText := range entryTexts {
+		trimmed := strings.TrimSpace(entryText)
+		if trimmed == "" {
 			continue
 		}
 
-		// Check frontmatter name
-		if strings.ToLower(data.Frontmatter.Name) == name {
-			return promptContent, nil
+		var entry PromptEntry
+		if err := yaml.Unmarshal([]byte(trimmed), &entry); err != nil {
+			// Skip invalid entries rather than failing completely
+			continue
 		}
 
-		// Check if description contains the name
-		if strings.Contains(strings.ToLower(data.Frontmatter.Description), name) {
-			return promptContent, nil
+		// Validate required fields
+		if entry.Name != "" && entry.File != "" {
+			promptEntries = append(promptEntries, entry)
 		}
 	}
 
-	return "", fmt.Errorf("prompt '%s' not found in remote prompts", name)
+	return promptEntries, nil
+}
+
+// findPromptByName searches for a prompt by name in the list of prompt entries
+func findPromptByName(prompts []PromptEntry, name string) (PromptEntry, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	
+	for _, entry := range prompts {
+		// Check exact name match
+		if strings.ToLower(entry.Name) == name {
+			return entry, nil
+		}
+
+		// Check if description contains the name
+		if strings.Contains(strings.ToLower(entry.Description), name) {
+			return entry, nil
+		}
+	}
+
+	return PromptEntry{}, fmt.Errorf("prompt '%s' not found in remote prompts", name)
 }
 
 // InstallMPromptByName fetches the PROMPTS file, finds a prompt by name, and installs it
@@ -963,16 +977,49 @@ func InstallMPromptByName(fs afero.Fs, promptName string) error {
 		return fmt.Errorf("failed to fetch remote prompts: %w", err)
 	}
 
-	// Find the prompt by name
-	promptContent, err := findPromptByName(prompts, promptName)
+	// Find the prompt entry by name
+	promptEntry, err := findPromptByName(prompts, promptName)
 	if err != nil {
 		return err
 	}
 
-	// Parse the found prompt
-	data, err := ParseMPromptContent([]byte(promptContent), fmt.Sprintf("remote-%s", promptName))
+	// Download the actual .mprompt file
+	promptURL := fmt.Sprintf("https://distro.marvai.dev/%s", promptEntry.File)
+	
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Make request to fetch the .mprompt file
+	resp, err := client.Get(promptURL)
 	if err != nil {
-		return fmt.Errorf("failed to parse found prompt: %w", err)
+		return fmt.Errorf("error downloading .mprompt file from %s: %w", promptURL, err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP error %d when downloading .mprompt file from %s", resp.StatusCode, promptURL)
+	}
+
+	// Read response with size limit
+	const maxSize = 10 * 1024 * 1024 // 10MB limit for .mprompt files
+	limitReader := io.LimitReader(resp.Body, maxSize+1)
+	promptContent, err := io.ReadAll(limitReader)
+	if err != nil {
+		return fmt.Errorf("error reading .mprompt file response: %w", err)
+	}
+
+	// Check size limit
+	if len(promptContent) > maxSize {
+		return fmt.Errorf(".mprompt file too large (%d bytes), maximum allowed is %d bytes", len(promptContent), maxSize)
+	}
+
+	// Parse the downloaded .mprompt file
+	data, err := ParseMPromptContent(promptContent, fmt.Sprintf("remote-%s", promptName))
+	if err != nil {
+		return fmt.Errorf("failed to parse downloaded .mprompt file: %w", err)
 	}
 
 	// Use the frontmatter name if available, otherwise use the provided name
@@ -1017,7 +1064,7 @@ func InstallMPromptByName(fs afero.Fs, promptName string) error {
 	}
 
 	// Write .mprompt file
-	if err := afero.WriteFile(fs, mpromptFile, []byte(promptContent), 0644); err != nil {
+	if err := afero.WriteFile(fs, mpromptFile, promptContent, 0644); err != nil {
 		return fmt.Errorf("error writing .mprompt file: %w", err)
 	}
 
@@ -1059,49 +1106,23 @@ func ListRemotePrompts(fs afero.Fs) error {
 	}
 
 	fmt.Printf("Found %d remote prompt(s):\n", len(prompts))
-	for i, promptContent := range prompts {
-		// Parse each prompt to extract metadata
-		data, err := ParseMPromptContent([]byte(promptContent), fmt.Sprintf("remote-prompt-%d", i))
-		if err != nil {
-			// If parsing fails, show raw content (first line only)
-			lines := strings.Split(promptContent, "\n")
-			if len(lines) > 0 {
-				fmt.Printf("  %s\n", strings.TrimSpace(lines[0]))
-			}
-			continue
-		}
-
-		// Use frontmatter name if available, otherwise use description or first line
-		displayName := data.Frontmatter.Name
-		if displayName == "" && data.Frontmatter.Description != "" {
-			displayName = data.Frontmatter.Description
-		}
-		if displayName == "" {
-			// Fallback to first non-empty line
-			lines := strings.Split(promptContent, "\n")
-			for _, line := range lines {
-				trimmed := strings.TrimSpace(line)
-				if trimmed != "" {
-					displayName = trimmed
-					break
-				}
-			}
-		}
-
+	for _, entry := range prompts {
 		// Build the display line
-		line := fmt.Sprintf("  %s", displayName)
+		line := fmt.Sprintf("  %s", entry.Name)
 
-		if data.Frontmatter.Version != "" {
-			line += fmt.Sprintf(" v%s", data.Frontmatter.Version)
+		if entry.Version != "" {
+			line += fmt.Sprintf(" v%s", entry.Version)
 		}
 
-		if data.Frontmatter.Description != "" && data.Frontmatter.Description != displayName {
-			line += fmt.Sprintf(" - %s", data.Frontmatter.Description)
+		if entry.Description != "" {
+			line += fmt.Sprintf(" - %s", entry.Description)
 		}
 
-		if data.Frontmatter.Author != "" {
-			line += fmt.Sprintf(" (by %s)", data.Frontmatter.Author)
+		if entry.Author != "" {
+			line += fmt.Sprintf(" (by %s)", entry.Author)
 		}
+
+		line += fmt.Sprintf(" [%s]", entry.File)
 
 		fmt.Println(line)
 	}
