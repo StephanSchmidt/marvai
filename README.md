@@ -21,10 +21,10 @@ go install github.com/StephanSchmidt/marvai@latest
 ## 'Hello World' Example
 
 ```bash
-$ marvai install hello
+$ marvai install helloworld
 # will ask you the language
 For what language? Go
-$ marvai prompt hello 
+$ marvai prompt helloworld 
 # calls claude code with the hello world prompt and generate the hello world
 # in the specified language
 ...
@@ -37,7 +37,7 @@ $ marvai prompt hello
 Install a `.mprompt` file by running its wizard and generating configuration files.
 
 ```bash
-> marvai install helloworldprompt
+> marvai install helloworld
 # or from Github
 > marvai install https://github.com/StephanSchmidt/helloworldprompt
 ```
