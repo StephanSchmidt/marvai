@@ -31,13 +31,13 @@ marvai prompt hello
 Install a `.mprompt` file by running its wizard and generating configuration files.
 
 ```bash
-marvai install example
-# or from URL
-marvai install https://example.com/prompt.mprompt
+marvai install helloworldprompt
+# or from Github
+marvai install https://github.com/StephanSchmidt/helloworldprompt
 ```
 
 This will:
-1. Read the `.mprompt` file from local path or HTTPS URL
+1. Read the `.mprompt` file from local path or Github URL
 2. Execute the wizard, prompting for variable values
 3. Generate `.marvai/<name>.mprompt` and `.marvai/<name>.var` files
 
@@ -123,7 +123,7 @@ Say {{hi}}
 3. Execute the prompt:
    ```bash
    $ marvai prompt example
-   Hello! I'm Claude Code, ready to help you with your software engineering tasks.
+   ...
    ```
 
 The generated files will be:
@@ -150,7 +150,7 @@ The template section supports:
 name: Advanced Example
 description: An advanced example with loops and conditionals
 author: Your Name
-version: 2.0
+version: 1.0
 --
 - id: name
   question: "What's your name?"
@@ -182,7 +182,7 @@ No items provided.
 
 ```
 your-project/
-├── example.mprompt          # Your prompt template
+├── example.mprompt          # possible prompt template for the project
 └── .marvai/
     ├── example.mprompt      # Installed template
     └── example.var          # Variable values
