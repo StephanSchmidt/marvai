@@ -2,3 +2,4 @@ marvai
 bin/
 coverage/
 dist/
+.marvai/
