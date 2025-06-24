@@ -342,6 +342,8 @@ type MPromptFrontmatter struct {
 	Description string `yaml:"description"`
 	Author      string `yaml:"author"`
 	Version     string `yaml:"version"`
+	File        string `yaml:"file,omitempty"`
+	Source      string `yaml:"source,omitempty"`
 }
 
 // PromptEntry represents an entry in the PROMPTS manifest file
@@ -642,8 +644,24 @@ func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
 		return fmt.Errorf("error creating .marvai directory: %w", err)
 	}
 
+	// Determine source type and inject it into the content
+	var sourceType string
+	if strings.HasPrefix(mpromptSource, "https://github.com/") {
+		sourceType = "github"
+	} else if strings.HasPrefix(mpromptSource, "https://") {
+		sourceType = "distro"
+	} else {
+		sourceType = "local"
+	}
+
+	// Inject source information into the content
+	updatedContent, err := injectSourceIntoMPrompt(content, sourceType)
+	if err != nil {
+		return fmt.Errorf("error injecting source into .mprompt content: %w", err)
+	}
+
 	// Copy .mprompt file to .marvai directory
-	if err := afero.WriteFile(fs, mpromptFile, content, 0644); err != nil {
+	if err := afero.WriteFile(fs, mpromptFile, updatedContent, 0644); err != nil {
 		return fmt.Errorf("error writing .mprompt file: %w", err)
 	}
 
@@ -964,6 +982,108 @@ func findPromptByName(prompts []PromptEntry, name string) (PromptEntry, error) {
 	return PromptEntry{}, fmt.Errorf("prompt '%s' not found in remote prompts", name)
 }
 
+// injectFilenameIntoMPrompt adds the filename to the frontmatter of a .mprompt file content
+func injectFilenameIntoMPrompt(content []byte, filename string) ([]byte, error) {
+	lines := strings.Split(string(content), "\n")
+	var result []string
+	section := 0 // 0=frontmatter, 1=wizard, 2=template
+	frontmatterLines := []string{}
+	
+	i := 0
+	// Collect frontmatter lines
+	for i < len(lines) {
+		line := lines[i]
+		if strings.TrimSpace(line) == "--" {
+			section++
+			break
+		}
+		frontmatterLines = append(frontmatterLines, line)
+		i++
+	}
+	
+	// Parse existing frontmatter
+	var frontmatter MPromptFrontmatter
+	if len(frontmatterLines) > 0 {
+		frontmatterYaml := strings.Join(frontmatterLines, "\n")
+		if frontmatterYaml != "" {
+			if err := yaml.Unmarshal([]byte(frontmatterYaml), &frontmatter); err != nil {
+				return nil, fmt.Errorf("error parsing frontmatter YAML: %w", err)
+			}
+		}
+	}
+	
+	// Add the filename to the frontmatter
+	frontmatter.File = filename
+	
+	// Marshal the updated frontmatter
+	updatedFrontmatter, err := yaml.Marshal(&frontmatter)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling updated frontmatter: %w", err)
+	}
+	
+	// Build the result
+	result = append(result, strings.TrimSpace(string(updatedFrontmatter)))
+	
+	// Add the rest of the content (from the first -- separator onwards)
+	for i < len(lines) {
+		result = append(result, lines[i])
+		i++
+	}
+	
+	return []byte(strings.Join(result, "\n")), nil
+}
+
+// injectSourceIntoMPrompt adds the source field to the frontmatter of a .mprompt file content
+func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) {
+	lines := strings.Split(string(content), "\n")
+	var result []string
+	section := 0 // 0=frontmatter, 1=wizard, 2=template
+	frontmatterLines := []string{}
+	
+	i := 0
+	// Collect frontmatter lines
+	for i < len(lines) {
+		line := lines[i]
+		if strings.TrimSpace(line) == "--" {
+			section++
+			break
+		}
+		frontmatterLines = append(frontmatterLines, line)
+		i++
+	}
+	
+	// Parse existing frontmatter
+	var frontmatter MPromptFrontmatter
+	if len(frontmatterLines) > 0 {
+		frontmatterYaml := strings.Join(frontmatterLines, "\n")
+		if frontmatterYaml != "" {
+			if err := yaml.Unmarshal([]byte(frontmatterYaml), &frontmatter); err != nil {
+				return nil, fmt.Errorf("error parsing frontmatter YAML: %w", err)
+			}
+		}
+	}
+	
+	// Add the source to the frontmatter
+	frontmatter.Source = sourceType
+	
+	// Marshal the updated frontmatter
+	updatedFrontmatter, err := yaml.Marshal(&frontmatter)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling updated frontmatter: %w", err)
+	}
+	
+	// Build the result
+	result = append(result, strings.TrimSpace(string(updatedFrontmatter)))
+	
+	// Add the rest of the content (from the first -- separator onwards)
+	for i < len(lines) {
+		result = append(result, lines[i])
+		i++
+	}
+	
+	return []byte(strings.Join(result, "\n")), nil
+}
+
 // InstallMPromptByName fetches the PROMPTS file, finds a prompt by name, and installs it
 func InstallMPromptByName(fs afero.Fs, promptName string) error {
 	// Validate prompt name
@@ -1063,8 +1183,20 @@ func InstallMPromptByName(fs afero.Fs, promptName string) error {
 		return fmt.Errorf("error creating .marvai directory: %w", err)
 	}
 
-	// Write .mprompt file
-	if err := afero.WriteFile(fs, mpromptFile, promptContent, 0644); err != nil {
+	// Inject the filename from the PROMPTS file into the .mprompt content
+	updatedContent, err := injectFilenameIntoMPrompt(promptContent, promptEntry.File)
+	if err != nil {
+		return fmt.Errorf("error injecting filename into .mprompt content: %w", err)
+	}
+
+	// Inject source information (distro for PROMPTS-based installs)
+	updatedContent, err = injectSourceIntoMPrompt(updatedContent, "distro")
+	if err != nil {
+		return fmt.Errorf("error injecting source into .mprompt content: %w", err)
+	}
+
+	// Write .mprompt file with the updated content
+	if err := afero.WriteFile(fs, mpromptFile, updatedContent, 0644); err != nil {
 		return fmt.Errorf("error writing .mprompt file: %w", err)
 	}
 

@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
-** ----- NOT SAFE FOR PRODUCTION -----**
+**----- NOT SAFE FOR PRODUCTION -----**
 
 A CLI tool for managing and executing prompt templates with interactive wizards.
 
