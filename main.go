@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"marvai/internal/marvai"
+	"github.com/StephanSchmidt/marvai/internal/marvai"
 )
 
 func main() {

@@ -64,23 +64,3 @@ release:
     ## Release {{ .Tag }}
     
     Welcome to this new release!
-
-  footer: |
-    ## Docker Images
-    
-    Docker images are available at:
-    - `ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:{{ .Tag }}`
-    - `ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:latest`
-
-dockers:
-  - image_templates:
-      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:{{ .Tag }}"
-      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:latest"
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/amd64"

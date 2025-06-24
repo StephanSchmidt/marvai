@@ -8,12 +8,6 @@ release:
     ## Release {{ .Tag }}
 
     Welcome to this new release!
-  footer: |
-    ## Docker Images
-
-    Docker images are available at:
-    - `ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:{{ .Tag }}`
-    - `ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:latest`
   mode: replace
 builds:
   - id: marvai
@@ -75,23 +69,6 @@ snapshot:
 checksum:
   name_template: checksums.txt
   algorithm: sha256
-dockers:
-  - goos: linux
-    goarch: amd64
-    goarm: "6"
-    goamd64: v1
-    dockerfile: Dockerfile
-    image_templates:
-      - ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:{{ .Tag }}
-      - ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/marvai:latest
-    build_flag_templates:
-      - --pull
-      - --label=org.opencontainers.image.created={{.Date}}
-      - --label=org.opencontainers.image.title={{.ProjectName}}
-      - --label=org.opencontainers.image.revision={{.FullCommit}}
-      - --label=org.opencontainers.image.version={{.Version}}
-      - --platform=linux/amd64
-    use: docker
 changelog:
   filters:
     exclude:

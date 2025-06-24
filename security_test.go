@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/afero"
 
-	"marvai/internal"
-	"marvai/internal/marvai"
+	"github.com/StephanSchmidt/marvai/internal"
+	"github.com/StephanSchmidt/marvai/internal/marvai"
 )
 
 // MockCommandRunner for testing binary operations

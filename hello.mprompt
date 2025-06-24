@@ -1,0 +1,13 @@
+
+name: Hello World
+description: Create a hello world
+author: Stephan Schmidt
+version: 0.1
+--
+- id: language
+  question: "For what language?"
+  type: string
+  required: true
+--
+Create a hello world example in {{language}}
+

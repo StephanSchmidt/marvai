@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 	
-	"marvai/internal"
-	"marvai/internal/source"
+	"github.com/StephanSchmidt/marvai/internal"
+	"github.com/StephanSchmidt/marvai/internal/source"
 )
 
 // CommandRunner interface for abstracting command execution
@@ -587,8 +587,8 @@ func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
 		} else {
 			promptName = "downloaded-prompt"
 		}
-		// If still empty or just a domain, use default
-		if promptName == "" || !strings.Contains(promptName, ".") {
+		// If still empty, use default, but keep filenames with extensions
+		if promptName == "" {
 			promptName = "downloaded-prompt"
 		}
 	}

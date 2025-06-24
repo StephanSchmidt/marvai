@@ -1,6 +1,6 @@
 # Marvai
 
-<img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marv.png" alt="Marvai Logo" width="50%">
+<img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/demo.png" alt="Demo Logo" width="70%">
 
 **!Not safe for production!**
 

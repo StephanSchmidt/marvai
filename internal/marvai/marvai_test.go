@@ -1096,7 +1096,7 @@ func TestListInstalledPrompts(t *testing.T) {
 				}
 				return nil
 			},
-			expectedOutput: "Found 2 installed prompt(s):\n  advanced (configured)\n  simple\n",
+			expectedOutput: "Found 2 installed prompt(s):\n  Advanced (configured)\n  Simple\n",
 		},
 	}
 
@@ -1189,7 +1189,7 @@ func TestInstalledCommand(t *testing.T) {
 		t.Errorf("Expected output to contain prompt count, got: %q", actualOutput)
 	}
 
-	if !strings.Contains(actualOutput, "test") || !strings.Contains(actualOutput, "example") {
+	if !strings.Contains(actualOutput, "Test") || !strings.Contains(actualOutput, "Example") {
 		t.Errorf("Expected output to contain prompt names, got: %q", actualOutput)
 	}
 }
