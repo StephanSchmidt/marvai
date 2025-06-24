@@ -188,7 +188,7 @@ func TestRun(t *testing.T) {
 			name:          "insufficient arguments",
 			args:          []string{"program"},
 			expectedError: "insufficient arguments",
-			checkStderr:   true,
+			checkStderr:   false,
 		},
 		{
 			name:          "prompt command without name",

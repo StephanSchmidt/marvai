@@ -1313,7 +1313,7 @@ func showWelcomeScreen(w io.Writer) {
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line5), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line6), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
-	fmt.Fprintf(w, "%s│%s   cwd: %s%s%s%s%s│%s\n", cyan, reset, green, cwd, reset, strings.Repeat(" ", boxWidth-len(line7)), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line7), cyan, reset)
 	fmt.Fprintf(w, "%s╰────────────────────────────────────────────────────────╯%s\n", cyan, reset)
 }
 
@@ -1321,7 +1321,7 @@ func showWelcomeScreen(w io.Writer) {
 func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 	if len(args) < 2 {
 		showWelcomeScreen(stderr)
-		return nil
+		return fmt.Errorf("insufficient arguments: expected at least 1 command")
 	}
 
 	command := args[1]
