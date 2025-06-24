@@ -18,7 +18,7 @@ go install github.com/StephanSchmidt/marvai@latest
 - **Templates**: Use powerful templating with `{{variablename}}` placeholders
 - **Claude Integration**: Execute generated prompts directly with Claude Code
 
-## 'Hello World' Example
+## 'Hello World' Exampleaa
 
 ```bash
 $ marvai install helloworld

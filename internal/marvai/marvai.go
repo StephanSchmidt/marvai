@@ -298,6 +298,10 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 	go func() {
 		defer stdin.Close()
 		_, writeErr := stdin.Write(content)
+		if writeErr == nil {
+			// Send /exit command to terminate Claude after processing the prompt
+			_, writeErr = stdin.Write([]byte("\n/exit\n"))
+		}
 		done <- writeErr
 	}()
 
@@ -1262,17 +1266,62 @@ func ListRemotePrompts(fs afero.Fs) error {
 	return nil
 }
 
+// showWelcomeScreen displays a welcome message similar to Claude Code
+func showWelcomeScreen(w io.Writer) {
+	// ANSI color codes
+	const (
+		cyan   = "\033[36m"
+		green  = "\033[32m"
+		yellow = "\033[33m"
+		reset  = "\033[0m"
+		bold   = "\033[1m"
+	)
+	
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "unknown"
+	}
+	
+	// Box width is 56 characters inside the borders
+	const boxWidth = 56
+	
+	// Helper function to pad a line to exact width
+	padLine := func(content string) string {
+		if len(content) > boxWidth {
+			return content[:boxWidth-3] + "..."
+		}
+		return content + strings.Repeat(" ", boxWidth-len(content))
+	}
+	
+	// Define content lines
+	line1 := " ✻ Welcome to Marvai!"
+	line2 := "   Prompt templates for Claude Code"
+	line3 := "   Commands:"
+	line4 := "     marvai install <source>  Install a prompt"
+	line5 := "     marvai list              List available prompts"
+	line6 := "     marvai prompt <name>     Execute a prompt"
+	line7 := "   cwd: " + cwd
+	
+	fmt.Fprintf(w, "%s╭────────────────────────────────────────────────────────╮%s\n", cyan, reset)
+	fmt.Fprintf(w, "%s│%s %s✻ Welcome to Marvai!%s%s%s│%s\n", cyan, reset, bold+green, reset, strings.Repeat(" ", boxWidth-len(line1)+2), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
+	fmt.Fprintf(w, "%s│%s   %sPrompt templates for Claude Code%s%s%s│%s\n", cyan, reset, yellow, reset, strings.Repeat(" ", boxWidth-len(line2)), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line3), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line4), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line5), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line6), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
+	fmt.Fprintf(w, "%s│%s   cwd: %s%s%s%s%s│%s\n", cyan, reset, green, cwd, reset, strings.Repeat(" ", boxWidth-len(line7)), cyan, reset)
+	fmt.Fprintf(w, "%s╰────────────────────────────────────────────────────────╯%s\n", cyan, reset)
+}
+
 // Run executes the main application logic
 func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 	if len(args) < 2 {
-		fmt.Fprintf(stderr, "Usage: %s <command> [args...]\n", args[0])
-		fmt.Fprintf(stderr, "Commands:\n")
-		fmt.Fprintf(stderr, "  prompt <name>      - Execute a prompt\n")
-		fmt.Fprintf(stderr, "  install <source>   - Install a .mprompt file from local path or HTTPS URL\n")
-		fmt.Fprintf(stderr, "  list               - List available prompts from remote distro\n")
-		fmt.Fprintf(stderr, "  list-local         - List available .mprompt files in current directory\n")
-		fmt.Fprintf(stderr, "  installed          - List installed prompts in .marvai directory\n")
-		return fmt.Errorf("insufficient arguments")
+		showWelcomeScreen(stderr)
+		return nil
 	}
 
 	command := args[1]
