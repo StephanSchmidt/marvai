@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
-	
+
 	"github.com/StephanSchmidt/marvai/internal"
 	"github.com/StephanSchmidt/marvai/internal/source"
 )
@@ -39,15 +40,15 @@ func (o OSCommandRunner) LookPath(file string) (string, error) {
 func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, homeDir string) string {
 	// SECURITY: First try to find claude in secure, well-known paths
 	// Avoid using PATH to prevent binary hijacking
-	
+
 	// Define secure installation paths by OS
 	var securePaths []string
-	
+
 	switch goos {
 	case "darwin":
 		securePaths = []string{
 			"/usr/local/bin/claude",
-			"/opt/homebrew/bin/claude", 
+			"/opt/homebrew/bin/claude",
 			"/Applications/Claude.app/Contents/MacOS/claude",
 		}
 		// Only add user paths if homeDir is secure
@@ -61,7 +62,7 @@ func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, 
 		}
 		// Only add user paths if homeDir is secure
 		if isSecureHomeDir(homeDir) {
-			securePaths = append(securePaths, 
+			securePaths = append(securePaths,
 				filepath.Join(homeDir, ".local", "bin", "claude"),
 				filepath.Join(homeDir, "bin", "claude"))
 		}
@@ -90,7 +91,7 @@ func isSecureHomeDir(homeDir string) bool {
 	if homeDir == "" || homeDir == "/" {
 		return false
 	}
-	
+
 	// SECURITY: Reject suspicious home directories
 	suspiciousPaths := []string{"/tmp", "/var/tmp", "/dev/shm"}
 	for _, suspicious := range suspiciousPaths {
@@ -98,7 +99,7 @@ func isSecureHomeDir(homeDir string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -109,23 +110,23 @@ func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// SECURITY: Ensure it's a regular file (not a symlink or device)
 	if !fileInfo.Mode().IsRegular() {
 		return false
 	}
-	
+
 	// SECURITY: Check file permissions (should be executable)
 	if fileInfo.Mode().Perm()&0111 == 0 {
 		return false
 	}
-	
+
 	// SECURITY: Validate the binary path doesn't contain suspicious patterns
 	cleanPath := filepath.Clean(binaryPath)
 	if strings.Contains(cleanPath, "..") {
 		return false
 	}
-	
+
 	// SECURITY: Reject paths in commonly writable directories
 	dangerousDirs := []string{"/tmp/", "/var/tmp/", "/dev/shm/"}
 	for _, dangerous := range dangerousDirs {
@@ -133,7 +134,7 @@ func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -151,31 +152,31 @@ func ValidatePromptName(promptName string) error {
 	if promptName == "" {
 		return fmt.Errorf("prompt name cannot be empty")
 	}
-	
+
 	if len(promptName) > 100 {
 		return fmt.Errorf("prompt name too long (max 100 characters)")
 	}
-	
+
 	// Check for path traversal attempts
 	if strings.Contains(promptName, "..") {
 		return fmt.Errorf("prompt name cannot contain '..'")
 	}
-	
+
 	if strings.Contains(promptName, "/") {
 		return fmt.Errorf("prompt name cannot contain '/'")
 	}
-	
+
 	if strings.Contains(promptName, "\\") {
 		return fmt.Errorf("prompt name cannot contain '\\'")
 	}
-	
+
 	// Check for control characters
 	for _, r := range promptName {
 		if r < 32 || r == 127 {
 			return fmt.Errorf("prompt name cannot contain control characters")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -184,10 +185,10 @@ func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) {
 	if err := ValidatePromptName(promptName); err != nil {
 		return nil, fmt.Errorf("invalid prompt name: %w", err)
 	}
-	
+
 	mpromptFile := filepath.Join(".marvai", promptName+".mprompt")
 	varFile := filepath.Join(".marvai", promptName+".var")
-	
+
 	// SECURITY: Prevent symlink attacks by checking if files are symlinks
 	if err := validateFileIsNotSymlink(fs, mpromptFile); err != nil {
 		return nil, fmt.Errorf("security error: %w", err)
@@ -195,7 +196,7 @@ func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) {
 	if err := validateFileIsNotSymlink(fs, varFile); err != nil {
 		return nil, fmt.Errorf("security error: %w", err)
 	}
-	
+
 	// SECURITY: Ensure the resolved paths are still within .marvai directory
 	if err := validateFileWithinMarvaiDirectory(mpromptFile); err != nil {
 		return nil, fmt.Errorf("security error: %w", err)
@@ -203,18 +204,18 @@ func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) {
 	if err := validateFileWithinMarvaiDirectory(varFile); err != nil {
 		return nil, fmt.Errorf("security error: %w", err)
 	}
-	
+
 	// Load and parse the .mprompt file
 	content, err := afero.ReadFile(fs, mpromptFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading .mprompt file: %w", err)
 	}
-	
+
 	data, err := ParseMPromptContent(content, mpromptFile)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing .mprompt file: %w", err)
 	}
-	
+
 	// Load variables from .var file if it exists
 	var values map[string]string
 	if varContent, err := afero.ReadFile(fs, varFile); err == nil {
@@ -225,13 +226,13 @@ func LoadPrompt(fs afero.Fs, promptName string) ([]byte, error) {
 		// No .var file exists, use empty values
 		values = make(map[string]string)
 	}
-	
+
 	// Template the prompt with the variables
 	finalPrompt, err := SubstituteVariables(data.Template, values)
 	if err != nil {
 		return nil, fmt.Errorf("error templating prompt: %w", err)
 	}
-	
+
 	return []byte(finalPrompt), nil
 }
 
@@ -256,17 +257,17 @@ func validateFileIsNotSymlink(fs afero.Fs, filePath string) error {
 func validateFileWithinMarvaiDirectory(filePath string) error {
 	// Clean the path to resolve any .. or . components
 	cleanPath := filepath.Clean(filePath)
-	
+
 	// Ensure the path starts with .marvai/
 	if !strings.HasPrefix(cleanPath, ".marvai/") && cleanPath != ".marvai" {
 		return fmt.Errorf("file path %q is outside the allowed .marvai directory", cleanPath)
 	}
-	
+
 	// Additional check: ensure no directory traversal even after cleaning
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("file path %q contains directory traversal sequences", cleanPath)
 	}
-	
+
 	return nil
 }
 
@@ -302,7 +303,7 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 
 	// Wait for command to complete
 	waitErr := cmd.Wait()
-	
+
 	// Wait for the write goroutine to complete or timeout
 	select {
 	case writeErr := <-done:
@@ -356,7 +357,7 @@ func ParseMPrompt(fs afero.Fs, filename string) (*MPromptData, error) {
 	if err := validateSafeFilename(filename); err != nil {
 		return nil, fmt.Errorf("unsafe filename: %w", err)
 	}
-	
+
 	content, err := afero.ReadFile(fs, filename)
 	if err != nil {
 		return nil, fmt.Errorf("error reading .mprompt file: %w", err)
@@ -373,7 +374,7 @@ func ParseMPrompt(fs afero.Fs, filename string) (*MPromptData, error) {
 // ParseMPromptContent parses .mprompt content directly (for use with source handlers)
 // Format: frontmatter -- wizard variables -- template
 func ParseMPromptContent(content []byte, displayName string) (*MPromptData, error) {
-	// SECURITY: Limit file size to prevent memory exhaustion  
+	// SECURITY: Limit file size to prevent memory exhaustion
 	if len(content) > 10*1024*1024 { // 10MB limit
 		return nil, fmt.Errorf("mprompt content too large (%d bytes), maximum allowed is 10MB", len(content))
 	}
@@ -382,7 +383,7 @@ func ParseMPromptContent(content []byte, displayName string) (*MPromptData, erro
 	var frontmatterLines []string
 	var wizardLines []string
 	var templateLines []string
-	
+
 	section := 0 // 0=frontmatter, 1=wizard, 2=template
 
 	for _, line := range lines {
@@ -390,7 +391,7 @@ func ParseMPromptContent(content []byte, displayName string) (*MPromptData, erro
 			section++
 			continue
 		}
-		
+
 		switch section {
 		case 0:
 			frontmatterLines = append(frontmatterLines, line)
@@ -408,12 +409,12 @@ func ParseMPromptContent(content []byte, displayName string) (*MPromptData, erro
 	var frontmatter MPromptFrontmatter
 	if len(frontmatterLines) > 0 {
 		frontmatterYaml := strings.Join(frontmatterLines, "\n")
-		
+
 		// SECURITY: Limit YAML size to prevent billion laughs attack
 		if len(frontmatterYaml) > 1024*1024 { // 1MB limit for frontmatter section
 			return nil, fmt.Errorf("frontmatter YAML section too large (%d bytes), maximum allowed is 1MB", len(frontmatterYaml))
 		}
-		
+
 		if err := yaml.Unmarshal([]byte(frontmatterYaml), &frontmatter); err != nil {
 			return nil, fmt.Errorf("error parsing frontmatter YAML from %s: %w", displayName, err)
 		}
@@ -423,16 +424,16 @@ func ParseMPromptContent(content []byte, displayName string) (*MPromptData, erro
 	var variables []WizardVariable
 	if len(wizardLines) > 0 {
 		wizardYaml := strings.Join(wizardLines, "\n")
-		
+
 		// SECURITY: Limit YAML size to prevent billion laughs attack
 		if len(wizardYaml) > 1024*1024 { // 1MB limit for YAML section
 			return nil, fmt.Errorf("wizard YAML section too large (%d bytes), maximum allowed is 1MB", len(wizardYaml))
 		}
-		
+
 		if err := yaml.Unmarshal([]byte(wizardYaml), &variables); err != nil {
 			return nil, fmt.Errorf("error parsing wizard YAML from %s: %w", displayName, err)
 		}
-		
+
 		// SECURITY: Validate wizard variables
 		if err := validateWizardVariables(variables); err != nil {
 			return nil, fmt.Errorf("invalid wizard variables in %s: %w", displayName, err)
@@ -456,15 +457,15 @@ func validateSafeFilename(filename string) error {
 	if strings.Contains(filename, "..") {
 		return fmt.Errorf("filename contains directory traversal: %q", filename)
 	}
-	
+
 	if strings.Contains(filename, "/") {
 		return fmt.Errorf("filename contains path separator: %q", filename)
 	}
-	
+
 	if len(filename) > 255 {
 		return fmt.Errorf("filename too long: %d characters", len(filename))
 	}
-	
+
 	return nil
 }
 
@@ -473,24 +474,24 @@ func validateWizardVariables(variables []WizardVariable) error {
 	if len(variables) > 100 { // Reasonable limit
 		return fmt.Errorf("too many wizard variables (%d), maximum allowed is 100", len(variables))
 	}
-	
+
 	for i, variable := range variables {
 		// SECURITY: Validate variable ID
 		if !isValidVariableNameLocal(variable.ID) {
 			return fmt.Errorf("variable %d has invalid ID: %q", i, variable.ID)
 		}
-		
+
 		// SECURITY: Limit question length
 		if len(variable.Question) > 1000 {
 			return fmt.Errorf("variable %d question too long: %d characters", i, len(variable.Question))
 		}
-		
+
 		// SECURITY: Validate variable type
 		if variable.Type != "" && variable.Type != "string" {
 			return fmt.Errorf("variable %d has unsupported type: %q", i, variable.Type)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -499,26 +500,26 @@ func isValidVariableNameLocal(name string) bool {
 	if name == "" {
 		return false
 	}
-	
+
 	// SECURITY: Block dangerous variable names
 	dangerousNames := []string{
 		"__proto__", "constructor", "prototype", "toString", "valueOf",
 	}
-	
+
 	for _, dangerous := range dangerousNames {
 		if name == dangerous {
 			return false
 		}
 	}
-	
+
 	// SECURITY: Only allow alphanumeric, underscore, and hyphen
 	for _, r := range name {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || 
-			 (r >= '0' && r <= '9') || r == '_' || r == '-') {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '_' || r == '-') {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -560,13 +561,13 @@ func SubstituteVariables(template string, values map[string]string) (string, err
 func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
 	// Create source manager
 	sourceManager := source.NewSourceManager(fs)
-	
+
 	// Load content from source (could be file or HTTPS URL)
 	content, displayName, err := sourceManager.LoadContent(mpromptSource)
 	if err != nil {
 		return fmt.Errorf("failed to load mprompt from source: %w", err)
 	}
-	
+
 	// Parse the content to extract wizard variables
 	data, err := ParseMPromptContent(content, displayName)
 	if err != nil {
@@ -592,12 +593,12 @@ func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
 			promptName = "downloaded-prompt"
 		}
 	}
-	
+
 	// Remove .mprompt extension if present for validation
 	if strings.HasSuffix(promptName, ".mprompt") {
 		promptName = strings.TrimSuffix(promptName, ".mprompt")
 	}
-	
+
 	if err := ValidatePromptName(promptName); err != nil {
 		return fmt.Errorf("invalid prompt name derived from source: %w", err)
 	}
@@ -605,17 +606,17 @@ func InstallMPrompt(fs afero.Fs, mpromptSource string) error {
 	// Check if both .mprompt and .var files already exist
 	mpromptFile := filepath.Join(".marvai", promptName+".mprompt")
 	varFile := filepath.Join(".marvai", promptName+".var")
-	
+
 	mpromptExists, err := afero.Exists(fs, mpromptFile)
 	if err != nil {
 		return fmt.Errorf("error checking if .mprompt file exists: %w", err)
 	}
-	
+
 	varExists, err := afero.Exists(fs, varFile)
 	if err != nil {
 		return fmt.Errorf("error checking if .var file exists: %w", err)
 	}
-	
+
 	if mpromptExists || varExists {
 		if mpromptExists && varExists {
 			fmt.Printf("Prompt '%s' is already installed (both .mprompt and .var files exist)\n", promptName)
@@ -667,51 +668,51 @@ func ListMPromptFiles(fs afero.Fs) error {
 	if err != nil {
 		return fmt.Errorf("error reading current directory: %w", err)
 	}
-	
+
 	var mpromptFiles []string
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".mprompt") {
 			mpromptFiles = append(mpromptFiles, file.Name())
 		}
 	}
-	
+
 	if len(mpromptFiles) == 0 {
 		fmt.Println("No .mprompt files found in current directory")
 		return nil
 	}
-	
+
 	fmt.Printf("Found %d .mprompt file(s):\n", len(mpromptFiles))
 	for _, file := range mpromptFiles {
 		// Extract the name without .mprompt extension for filename display
 		filename := strings.TrimSuffix(file, ".mprompt")
-		
+
 		// Get frontmatter information
 		name, description, author, version := getMPromptInfo(fs, file)
-		
+
 		// Use frontmatter name if available, otherwise use filename
 		displayName := name
 		if displayName == "" {
 			displayName = filename
 		}
-		
+
 		// Build the display line
 		line := fmt.Sprintf("  %s", displayName)
-		
+
 		if version != "" {
 			line += fmt.Sprintf(" v%s", version)
 		}
-		
+
 		if description != "" {
 			line += fmt.Sprintf(" - %s", description)
 		}
-		
+
 		if author != "" {
 			line += fmt.Sprintf(" (by %s)", author)
 		}
-		
+
 		fmt.Println(line)
 	}
-	
+
 	return nil
 }
 
@@ -722,17 +723,17 @@ func ListInstalledPrompts(fs afero.Fs) error {
 	if err != nil {
 		return fmt.Errorf("error checking .marvai directory: %w", err)
 	}
-	
+
 	if !exists {
 		fmt.Println("No .marvai directory found. Run 'install' command to install prompts first.")
 		return nil
 	}
-	
+
 	files, err := afero.ReadDir(fs, ".marvai")
 	if err != nil {
 		return fmt.Errorf("error reading .marvai directory: %w", err)
 	}
-	
+
 	var promptFiles []string
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".mprompt") {
@@ -741,50 +742,50 @@ func ListInstalledPrompts(fs afero.Fs) error {
 			promptFiles = append(promptFiles, name)
 		}
 	}
-	
+
 	if len(promptFiles) == 0 {
 		fmt.Println("No installed prompts found in .marvai directory")
 		return nil
 	}
-	
+
 	fmt.Printf("Found %d installed prompt(s):\n", len(promptFiles))
 	for _, name := range promptFiles {
 		// Check if .var file exists to show configuration status
 		varFile := filepath.Join(".marvai", name+".var")
 		varExists, _ := afero.Exists(fs, varFile)
-		
+
 		// Get version information from the .mprompt file
 		mpromptFile := filepath.Join(".marvai", name+".mprompt")
 		promptName, description, author, version := getInstalledMPromptInfo(fs, mpromptFile)
-		
+
 		// Use frontmatter name if available, otherwise use filename
 		displayName := promptName
 		if displayName == "" {
 			displayName = name
 		}
-		
+
 		// Build the display line
 		line := fmt.Sprintf("  %s", displayName)
-		
+
 		if version != "" {
 			line += fmt.Sprintf(" v%s", version)
 		}
-		
+
 		if description != "" {
 			line += fmt.Sprintf(" - %s", description)
 		}
-		
+
 		if author != "" {
 			line += fmt.Sprintf(" (by %s)", author)
 		}
-		
+
 		if varExists {
 			line += " (configured)"
 		}
-		
+
 		fmt.Println(line)
 	}
-	
+
 	return nil
 }
 
@@ -794,7 +795,7 @@ func getMPromptInfo(fs afero.Fs, filename string) (name, description, author, ve
 	if err != nil {
 		return "", "", "", ""
 	}
-	
+
 	// Use frontmatter information if available
 	if data.Frontmatter.Name != "" {
 		name = data.Frontmatter.Name
@@ -808,7 +809,7 @@ func getMPromptInfo(fs afero.Fs, filename string) (name, description, author, ve
 	if data.Frontmatter.Version != "" {
 		version = data.Frontmatter.Version
 	}
-	
+
 	// Fallback to old behavior if no frontmatter description
 	if description == "" && len(data.Variables) > 0 {
 		// Look for a description variable
@@ -818,13 +819,13 @@ func getMPromptInfo(fs afero.Fs, filename string) (name, description, author, ve
 				break
 			}
 		}
-		
+
 		// Otherwise, show the first variable's question as a hint of what this prompt does
 		if description == "" {
 			description = fmt.Sprintf("Prompts for: %s", data.Variables[0].Question)
 		}
 	}
-	
+
 	return name, description, author, version
 }
 
@@ -835,12 +836,12 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 	if err != nil {
 		return "", "", "", ""
 	}
-	
+
 	data, err := ParseMPromptContent(content, filename)
 	if err != nil {
 		return "", "", "", ""
 	}
-	
+
 	// Use frontmatter information if available
 	if data.Frontmatter.Name != "" {
 		name = data.Frontmatter.Name
@@ -854,7 +855,7 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 	if data.Frontmatter.Version != "" {
 		version = data.Frontmatter.Version
 	}
-	
+
 	// Fallback to old behavior if no frontmatter description
 	if description == "" && len(data.Variables) > 0 {
 		// Look for a description variable
@@ -864,14 +865,248 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 				break
 			}
 		}
-		
+
 		// Otherwise, show the first variable's question as a hint of what this prompt does
 		if description == "" {
 			description = fmt.Sprintf("Prompts for: %s", data.Variables[0].Question)
 		}
 	}
-	
+
 	return name, description, author, version
+}
+
+// fetchRemotePrompts fetches and parses the PROMPTS file from the remote distro
+func fetchRemotePrompts() ([]string, error) {
+	const promptsURL = "https://distro.marvai.dev/PROMPTS"
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Make request to fetch prompts
+	resp, err := client.Get(promptsURL)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching remote prompts: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error %d when fetching remote prompts", resp.StatusCode)
+	}
+
+	// Read response with size limit
+	const maxSize = 1024 * 1024 // 1MB limit for prompts list
+	limitReader := io.LimitReader(resp.Body, maxSize+1)
+	content, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("error reading remote prompts response: %w", err)
+	}
+
+	// Check size limit
+	if len(content) > maxSize {
+		return nil, fmt.Errorf("remote prompts list too large (%d bytes), maximum allowed is %d bytes", len(content), maxSize)
+	}
+
+	// Parse prompts separated by --
+	promptsText := string(content)
+	prompts := strings.Split(promptsText, "--")
+
+	// Remove empty prompts and trim whitespace
+	var validPrompts []string
+	for _, prompt := range prompts {
+		trimmed := strings.TrimSpace(prompt)
+		if trimmed != "" {
+			validPrompts = append(validPrompts, trimmed)
+		}
+	}
+
+	return validPrompts, nil
+}
+
+// findPromptByName searches for a prompt by name in the list of prompts
+func findPromptByName(prompts []string, name string) (string, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	
+	for _, promptContent := range prompts {
+		// Parse each prompt to extract metadata
+		data, err := ParseMPromptContent([]byte(promptContent), "remote-prompt")
+		if err != nil {
+			continue
+		}
+
+		// Check frontmatter name
+		if strings.ToLower(data.Frontmatter.Name) == name {
+			return promptContent, nil
+		}
+
+		// Check if description contains the name
+		if strings.Contains(strings.ToLower(data.Frontmatter.Description), name) {
+			return promptContent, nil
+		}
+	}
+
+	return "", fmt.Errorf("prompt '%s' not found in remote prompts", name)
+}
+
+// InstallMPromptByName fetches the PROMPTS file, finds a prompt by name, and installs it
+func InstallMPromptByName(fs afero.Fs, promptName string) error {
+	// Validate prompt name
+	if err := ValidatePromptName(promptName); err != nil {
+		return fmt.Errorf("invalid prompt name: %w", err)
+	}
+
+	// Fetch remote prompts
+	prompts, err := fetchRemotePrompts()
+	if err != nil {
+		return fmt.Errorf("failed to fetch remote prompts: %w", err)
+	}
+
+	// Find the prompt by name
+	promptContent, err := findPromptByName(prompts, promptName)
+	if err != nil {
+		return err
+	}
+
+	// Parse the found prompt
+	data, err := ParseMPromptContent([]byte(promptContent), fmt.Sprintf("remote-%s", promptName))
+	if err != nil {
+		return fmt.Errorf("failed to parse found prompt: %w", err)
+	}
+
+	// Use the frontmatter name if available, otherwise use the provided name
+	finalName := promptName
+	if data.Frontmatter.Name != "" {
+		finalName = data.Frontmatter.Name
+		// Validate the frontmatter name
+		if err := ValidatePromptName(finalName); err != nil {
+			// If frontmatter name is invalid, fall back to provided name
+			finalName = promptName
+		}
+	}
+
+	// Check if prompt is already installed
+	mpromptFile := filepath.Join(".marvai", finalName+".mprompt")
+	varFile := filepath.Join(".marvai", finalName+".var")
+
+	mpromptExists, err := afero.Exists(fs, mpromptFile)
+	if err != nil {
+		return fmt.Errorf("error checking if .mprompt file exists: %w", err)
+	}
+
+	varExists, err := afero.Exists(fs, varFile)
+	if err != nil {
+		return fmt.Errorf("error checking if .var file exists: %w", err)
+	}
+
+	if mpromptExists || varExists {
+		if mpromptExists && varExists {
+			fmt.Printf("Prompt '%s' is already installed (both .mprompt and .var files exist)\n", finalName)
+		} else if mpromptExists {
+			fmt.Printf("Prompt '%s' is already installed (.mprompt file exists)\n", finalName)
+		} else {
+			fmt.Printf("Prompt '%s' is already installed (.var file exists)\n", finalName)
+		}
+		return nil
+	}
+
+	// Create .marvai directory
+	if err := fs.MkdirAll(".marvai", 0755); err != nil {
+		return fmt.Errorf("error creating .marvai directory: %w", err)
+	}
+
+	// Write .mprompt file
+	if err := afero.WriteFile(fs, mpromptFile, []byte(promptContent), 0644); err != nil {
+		return fmt.Errorf("error writing .mprompt file: %w", err)
+	}
+
+	// Run wizard and save answers to .var file
+	if len(data.Variables) > 0 {
+		values, err := ExecuteWizard(data.Variables)
+		if err != nil {
+			return err
+		}
+
+		// Save wizard answers as YAML
+		varData, err := yaml.Marshal(values)
+		if err != nil {
+			return fmt.Errorf("error marshaling wizard answers: %w", err)
+		}
+
+		if err := afero.WriteFile(fs, varFile, varData, 0644); err != nil {
+			return fmt.Errorf("error writing .var file: %w", err)
+		}
+		fmt.Printf("Installed %s with variables saved to %s\n", mpromptFile, varFile)
+	} else {
+		fmt.Printf("Installed %s (no variables to configure)\n", mpromptFile)
+	}
+
+	return nil
+}
+
+// ListRemotePrompts fetches and displays available prompts from the remote distro
+func ListRemotePrompts(fs afero.Fs) error {
+	// Fetch remote prompts
+	prompts, err := fetchRemotePrompts()
+	if err != nil {
+		return err
+	}
+
+	if len(prompts) == 0 {
+		fmt.Println("No remote prompts found")
+		return nil
+	}
+
+	fmt.Printf("Found %d remote prompt(s):\n", len(prompts))
+	for i, promptContent := range prompts {
+		// Parse each prompt to extract metadata
+		data, err := ParseMPromptContent([]byte(promptContent), fmt.Sprintf("remote-prompt-%d", i))
+		if err != nil {
+			// If parsing fails, show raw content (first line only)
+			lines := strings.Split(promptContent, "\n")
+			if len(lines) > 0 {
+				fmt.Printf("  %s\n", strings.TrimSpace(lines[0]))
+			}
+			continue
+		}
+
+		// Use frontmatter name if available, otherwise use description or first line
+		displayName := data.Frontmatter.Name
+		if displayName == "" && data.Frontmatter.Description != "" {
+			displayName = data.Frontmatter.Description
+		}
+		if displayName == "" {
+			// Fallback to first non-empty line
+			lines := strings.Split(promptContent, "\n")
+			for _, line := range lines {
+				trimmed := strings.TrimSpace(line)
+				if trimmed != "" {
+					displayName = trimmed
+					break
+				}
+			}
+		}
+
+		// Build the display line
+		line := fmt.Sprintf("  %s", displayName)
+
+		if data.Frontmatter.Version != "" {
+			line += fmt.Sprintf(" v%s", data.Frontmatter.Version)
+		}
+
+		if data.Frontmatter.Description != "" && data.Frontmatter.Description != displayName {
+			line += fmt.Sprintf(" - %s", data.Frontmatter.Description)
+		}
+
+		if data.Frontmatter.Author != "" {
+			line += fmt.Sprintf(" (by %s)", data.Frontmatter.Author)
+		}
+
+		fmt.Println(line)
+	}
+
+	return nil
 }
 
 // Run executes the main application logic
@@ -881,13 +1116,14 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		fmt.Fprintf(stderr, "Commands:\n")
 		fmt.Fprintf(stderr, "  prompt <name>      - Execute a prompt\n")
 		fmt.Fprintf(stderr, "  install <source>   - Install a .mprompt file from local path or HTTPS URL\n")
-		fmt.Fprintf(stderr, "  list               - List available .mprompt files in current directory\n")
+		fmt.Fprintf(stderr, "  list               - List available prompts from remote distro\n")
+		fmt.Fprintf(stderr, "  list-local         - List available .mprompt files in current directory\n")
 		fmt.Fprintf(stderr, "  installed          - List installed prompts in .marvai directory\n")
 		return fmt.Errorf("insufficient arguments")
 	}
 
 	command := args[1]
-	
+
 	switch command {
 	case "prompt":
 		if len(args) < 3 {
@@ -896,22 +1132,33 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		}
 		promptName := args[2]
 		return RunWithPrompt(fs, promptName)
-		
+
 	case "install":
 		if len(args) < 3 {
 			fmt.Fprintf(stderr, "Usage: %s install <source>\n", args[0])
-			fmt.Fprintf(stderr, "  <source> can be a local file name or HTTPS URL\n")
+			fmt.Fprintf(stderr, "  <source> can be a local file name, HTTPS URL, or prompt name from remote distro\n")
 			return fmt.Errorf("mprompt source required")
 		}
 		mpromptSource := args[2]
-		return InstallMPrompt(fs, mpromptSource)
 		
+		// Check if this looks like a URL or local file
+		if strings.HasPrefix(mpromptSource, "https://") || strings.Contains(mpromptSource, ".") {
+			// Install from URL or local file
+			return InstallMPrompt(fs, mpromptSource)
+		} else {
+			// Install by name from remote distro
+			return InstallMPromptByName(fs, mpromptSource)
+		}
+
 	case "list":
+		return ListRemotePrompts(fs)
+
+	case "list-local":
 		return ListMPromptFiles(fs)
-		
+
 	case "installed":
 		return ListInstalledPrompts(fs)
-		
+
 	default:
 		// Backward compatibility: if no command specified, treat as prompt
 		promptName := args[1]

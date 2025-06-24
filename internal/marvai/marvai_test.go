@@ -23,15 +23,15 @@ type MockCommandRunner struct {
 }
 
 type MockCommand struct {
-	name          string
-	args          []string
-	stdout        io.Writer
-	stderr        io.Writer
-	stdin         io.WriteCloser
-	startError    error
-	waitError     error
-	stdinPipeErr  error
-	simulateHang  bool
+	name         string
+	args         []string
+	stdout       io.Writer
+	stderr       io.Writer
+	stdin        io.WriteCloser
+	startError   error
+	waitError    error
+	stdinPipeErr error
+	simulateHang bool
 }
 
 func (m *MockCommand) StdinPipe() (io.WriteCloser, error) {
@@ -66,24 +66,24 @@ func (m *MockCommandRunner) Command(name string, arg ...string) *exec.Cmd {
 	// For mock testing, we need to simulate the command properly
 	// Since we can't easily mock exec.Cmd completely, we'll use a real command
 	// that exists but behave as expected for our tests
-	
+
 	cmd := exec.Command("echo", "mock output")
-	
+
 	// Store the command details for verification
 	mockCmd := &MockCommand{
 		name:         name,
 		args:         arg,
 		simulateHang: m.simulateHang,
 	}
-	
+
 	if m.simulateError {
 		mockCmd.startError = fmt.Errorf("simulated start error")
 		// Use a command that will fail
 		cmd = exec.Command("nonexistent-command-that-should-fail")
 	}
-	
+
 	m.commands = append(m.commands, mockCmd)
-	
+
 	return cmd
 }
 
@@ -227,7 +227,7 @@ func TestRun(t *testing.T) {
 
 			// Check stderr output for usage message
 			if tt.checkStderr && len(tt.args) < 2 {
-				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>      - Execute a prompt\n  install <source>   - Install a .mprompt file from local path or HTTPS URL\n  list               - List available .mprompt files in current directory\n  installed          - List installed prompts in .marvai directory\n"
+				expectedUsage := "Usage: program <command> [args...]\nCommands:\n  prompt <name>      - Execute a prompt\n  install <source>   - Install a .mprompt file from local path or HTTPS URL\n  list               - List available prompts from remote distro\n  list-local         - List available .mprompt files in current directory\n  installed          - List installed prompts in .marvai directory\n"
 				if stderr.String() != expectedUsage {
 					t.Errorf("Expected stderr %q, got %q", expectedUsage, stderr.String())
 				}
@@ -265,7 +265,7 @@ func TestLoadPrompt(t *testing.T) {
 			name:           "load prompt with missing variable file",
 			promptName:     "missing-vars",
 			mpromptContent: "name: Test\n--\n- id: name\n  question: \"What is your name?\"\n--\nHello {{name}}!",
-			varContent:     "", // No .var file created
+			varContent:     "",        // No .var file created
 			expectedResult: "Hello !", // Empty variable
 			expectedError:  false,
 		},
@@ -507,16 +507,16 @@ func TestLoadPromptDirectoryTraversal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
-			
+
 			// Create .marvai directory
 			fs.MkdirAll(".marvai", 0755)
-			
+
 			// For valid test cases, create the expected files
 			if tt.shouldSucceed {
 				mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
 				afero.WriteFile(fs, mpromptFile, []byte("name: Test\n--\n--\ntest content"), 0644)
 			}
-			
+
 			// Also create a sensitive file outside the .marvai directory to test traversal
 			fs.MkdirAll("/etc", 0755)
 			afero.WriteFile(fs, "/etc/passwd", []byte("sensitive data"), 0644)
@@ -583,7 +583,7 @@ func TestLoadPromptInputValidation(t *testing.T) {
 			fs.MkdirAll(".marvai", 0755)
 
 			_, err := LoadPrompt(fs, tt.promptName)
-			
+
 			if tt.expectErr && err == nil {
 				t.Errorf("Expected error for invalid prompt name %q, but got none", tt.promptName)
 			}
@@ -594,11 +594,11 @@ func TestLoadPromptInputValidation(t *testing.T) {
 // TestRunWithPromptResourceLeaks tests for resource leaks in command execution
 func TestRunWithPromptResourceLeaks(t *testing.T) {
 	tests := []struct {
-		name         string
-		setupFs      func(afero.Fs) error
-		setupRunner  func() *MockCommandRunner
-		expectError  bool
-		description  string
+		name        string
+		setupFs     func(afero.Fs) error
+		setupRunner func() *MockCommandRunner
+		expectError bool
+		description string
 	}{
 		{
 			name: "stdin pipe creation fails",
@@ -643,7 +643,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 				// Mock the command to have a wait error
 				return runner
 			},
-			expectError: false, // Mock doesn't simulate wait failure perfectly  
+			expectError: false, // Mock doesn't simulate wait failure perfectly
 			description: "Should handle command wait failure",
 		},
 	}
@@ -693,7 +693,7 @@ func TestInstallMPromptDirectoryTraversal(t *testing.T) {
 			description: "Should reject path traversal in mprompt names",
 		},
 		{
-			name:        "absolute path in mprompt name", 
+			name:        "absolute path in mprompt name",
 			mpromptName: "/etc/passwd",
 			expectError: true,
 			description: "Should reject absolute paths",
@@ -710,7 +710,7 @@ func TestInstallMPromptDirectoryTraversal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
-			
+
 			// For valid test cases, create the mprompt file
 			if !tt.expectError {
 				mpromptContent := `name: Test Template
@@ -751,7 +751,7 @@ func TestParseMPromptErrorHandling(t *testing.T) {
 		description string
 	}{
 		{
-			name:        "invalid YAML in wizard section",
+			name: "invalid YAML in wizard section",
 			fileContent: `name: Test
 --
 - id: test
@@ -763,7 +763,7 @@ Template content`,
 			description: "Should handle invalid YAML gracefully",
 		},
 		{
-			name:        "missing separator",
+			name: "missing separator",
 			fileContent: `name: Test
 description: A test template
 Template without separator`,
@@ -783,7 +783,7 @@ Template without separator`,
 			description: "Should handle files with only one separator",
 		},
 		{
-			name: "extremely large file",
+			name:        "extremely large file",
 			fileContent: "name: Test\n--\n- id: test\n  question: \"Test?\"\n--\n" + strings.Repeat("A", 1000000),
 			expectError: false,
 			description: "Should handle large files without memory issues",
@@ -795,7 +795,7 @@ Template without separator`,
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
 			filename := "test.mprompt"
-			
+
 			// Write test file
 			err := afero.WriteFile(fs, filename, []byte(tt.fileContent), 0644)
 			if err != nil {
@@ -868,7 +868,7 @@ func TestValidatePromptName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidatePromptName(tt.promptName)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error for prompt name %q, but got none", tt.promptName)
@@ -884,12 +884,12 @@ func TestValidatePromptName(t *testing.T) {
 
 func TestListMPromptFiles(t *testing.T) {
 	tests := []struct {
-		name          string
-		files         map[string]string // filename -> content
+		name           string
+		files          map[string]string // filename -> content
 		expectedOutput string
 	}{
 		{
-			name:  "no mprompt files",
+			name: "no mprompt files",
 			files: map[string]string{
 				"readme.txt": "some text",
 				"script.sh":  "#!/bin/bash",
@@ -1005,7 +1005,7 @@ author: Test Author
   type: string
 --
 Test template`
-	
+
 	err := afero.WriteFile(fs, "test.mprompt", []byte(testContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
@@ -1016,9 +1016,9 @@ Test template`
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Test the list command via Run function
+	// Test the list-local command via Run function
 	var stderr bytes.Buffer
-	err = Run([]string{"program", "list"}, fs, &stderr)
+	err = Run([]string{"program", "list-local"}, fs, &stderr)
 
 	// Restore stdout
 	w.Close()

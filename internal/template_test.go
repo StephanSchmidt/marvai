@@ -99,16 +99,16 @@ func TestRenderTemplateErrors(t *testing.T) {
 func TestRegisterHelpers(t *testing.T) {
 	// Test that helpers are registered correctly
 	RegisterHelpers()
-	
+
 	// Test split helper directly through a template
 	template := "{{#each (split \"a,b,c\" \",\")}}{{this}}-{{/each}}"
 	values := map[string]string{}
-	
+
 	result, err := RenderTemplate(template, values)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	expected := "a-b-c-"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)

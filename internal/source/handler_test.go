@@ -165,15 +165,15 @@ func TestHTTPSHandler_transformToRawURL(t *testing.T) {
 
 	for _, test := range tests {
 		result, err := handler.transformToRawURL(test.githubURL)
-		
+
 		if test.shouldErr && err == nil {
 			t.Errorf("transformToRawURL(%q) should have returned an error", test.githubURL)
 		}
-		
+
 		if !test.shouldErr && err != nil {
 			t.Errorf("transformToRawURL(%q) returned unexpected error: %v", test.githubURL, err)
 		}
-		
+
 		if !test.shouldErr && result != test.expected {
 			t.Errorf("transformToRawURL(%q) = %q, expected %q", test.githubURL, result, test.expected)
 		}
