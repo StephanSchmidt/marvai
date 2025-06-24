@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
-**!Not safe for production!**
+** ----- NOT SAFE FOR PRODUCTION -----**
 
 A CLI tool for managing and executing prompt templates with interactive wizards.
 
@@ -21,10 +21,10 @@ go install github.com/StephanSchmidt/marvai@latest
 ## 'Hello World' Example
 
 ```bash
-marvai install hello
+$ marvai install hello
 # will ask you the language
 For what language? Go
-marvai prompt hello 
+$ marvai prompt hello 
 # calls claude code with the hello world prompt and generate the hello world
 # in the specified language
 ...
@@ -37,9 +37,9 @@ marvai prompt hello
 Install a `.mprompt` file by running its wizard and generating configuration files.
 
 ```bash
-marvai install helloworldprompt
+> marvai install helloworldprompt
 # or from Github
-marvai install https://github.com/StephanSchmidt/helloworldprompt
+> marvai install https://github.com/StephanSchmidt/helloworldprompt
 ```
 
 This will:
@@ -52,7 +52,7 @@ This will:
 Execute a previously installed prompt with Claude Code.
 
 ```bash
-marvai prompt example
+$ marvai prompt example
 ```
 
 This will run the templated prompt through Claude Code.
@@ -62,7 +62,7 @@ This will run the templated prompt through Claude Code.
 List available `.mprompt` files in the current directory.
 
 ```bash
-$ marvai list
+$ marvai list-local
 Found 2 .mprompt file(s):
   Advanced Example - An advanced example (by Stephan Schmidt)
   Example v0.4 - An example (by Stephan Schmidt)
