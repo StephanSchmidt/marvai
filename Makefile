@@ -25,7 +25,7 @@ tag:
 	$(eval VERSION := $(shell cat version.txt))
 	@echo "Creating git tag v$(VERSION)"
 	git tag -a "v$(VERSION)" -m "Release version $(VERSION)"
-	
+
 # Run tests with coverage
 test-coverage:
 	mkdir -p coverage
@@ -43,7 +43,4 @@ release:
 # Dry run release (build without releasing)
 release-dry-run:
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install with: go install github.com/goreleaser/goreleaser@latest" && exit 1)
-	@if [ ! -f version.txt ]; then echo "version.txt not found"; exit 1; fi
-	$(eval VERSION := $(shell cat version.txt))
-	@echo "Dry run for version v$(VERSION) (no git tag will be created)"
 	goreleaser release --snapshot --clean
