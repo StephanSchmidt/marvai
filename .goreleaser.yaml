@@ -22,8 +22,8 @@ builds:
     goarm:
       - "6"
       - "7"
-    main: ./cmd/marvai
-    binary: marvai
+    main: ./main.go
+    binary: ./bin/marvai
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
@@ -41,7 +41,7 @@ archives:
         format: zip
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
@@ -50,8 +50,8 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
 
 release:
   github:
@@ -62,5 +62,5 @@ release:
   mode: replace
   header: |
     ## Release {{ .Tag }}
-    
+
     Welcome to this new release!

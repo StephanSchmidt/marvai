@@ -41,8 +41,8 @@ builds:
       - darwin_amd64_v1
       - darwin_arm64
     dir: .
-    main: ./cmd/marvai
-    binary: marvai
+    main: ./main.go
+    binary: ./bin/marvai
     builder: go
     gobinary: go
     command: build
