@@ -6,6 +6,12 @@
 
 A CLI tool for managing and executing prompt templates with interactive wizards.
 
+## Install
+
+```bash
+go install github.com/StephanSchmidt/marvai@latest
+```
+
 ## Features
 
 - **Interactive Wizards**: Define variables with questions to prompt users for input
