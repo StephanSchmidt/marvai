@@ -50,8 +50,7 @@ func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, 
 	case "darwin":
 		securePaths = []string{
 			"/usr/local/bin/claude",
-			"/opt/homebrew/bin/claude",
-			"/Applications/Claude.app/Contents/MacOS/claude",
+			"/opt/homebrew/bin/claude"
 		}
 		// Only add user paths if homeDir is secure
 		if isSecureHomeDir(homeDir) {
