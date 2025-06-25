@@ -51,7 +51,6 @@ func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, 
 		securePaths = []string{
 			"/usr/local/bin/claude",
 			"/opt/homebrew/bin/claude",
-			"/Applications/Claude.app/Contents/MacOS/claude",
 		}
 		// Only add user paths if homeDir is secure
 		if isSecureHomeDir(homeDir) {
@@ -105,7 +104,7 @@ func isSecureHomeDir(homeDir string) bool {
 	return true
 }
 
-// isValidClaudeBinary validates that a binary is actually the claude binary
+// isValidClaudeBinary validates that a binary is actually the claude code binary (node app), not Claude Desktop
 func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
 	// Check if file exists and is executable
 	fileInfo, err := fs.Stat(binaryPath)
@@ -137,7 +136,71 @@ func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
 		}
 	}
 
+	// SECURITY: Verify this is Claude Code (node app) and not Claude Desktop
+	if !isClaudeCodeBinary(fs, binaryPath) {
+		return false
+	}
+
 	return true
+}
+
+// isClaudeCodeBinary checks if the binary is Claude Code (node app) and not Claude Desktop
+func isClaudeCodeBinary(fs afero.Fs, binaryPath string) bool {
+	// Read the first few bytes to check the file type
+	file, err := fs.Open(binaryPath)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	// Read first 512 bytes to check for shebang or file signature
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && n == 0 {
+		return false
+	}
+
+	content := string(buffer[:n])
+
+	// Check for Node.js shebang (Claude Code is a Node.js script)
+	if strings.HasPrefix(content, "#!/usr/bin/env node") ||
+		strings.HasPrefix(content, "#!/usr/bin/node") ||
+		strings.HasPrefix(content, "#! /usr/bin/env node") ||
+		strings.HasPrefix(content, "#! /usr/bin/node") {
+		return true
+	}
+
+	// Check for shell script that calls Node.js (common for npm-installed binaries)
+	if strings.Contains(content, "node") && (strings.Contains(content, "claude") || strings.Contains(content, "@anthropic-ai/claude-code")) {
+		return true
+	}
+
+	// For macOS, reject paths that look like app bundles (Claude Desktop)
+	if strings.Contains(binaryPath, ".app/Contents/MacOS/") {
+		return false
+	}
+
+	// Additional check: reject if the binary appears to be a native macOS/Linux executable
+	// but doesn't have Node.js characteristics
+	if len(buffer) >= 4 {
+		// Check for Mach-O magic numbers (macOS executables)
+		if (buffer[0] == 0xfe && buffer[1] == 0xed && buffer[2] == 0xfa && buffer[3] == 0xce) || // Mach-O 32-bit
+			(buffer[0] == 0xfe && buffer[1] == 0xed && buffer[2] == 0xfa && buffer[3] == 0xcf) || // Mach-O 64-bit
+			(buffer[0] == 0xcf && buffer[1] == 0xfa && buffer[2] == 0xed && buffer[3] == 0xfe) || // Mach-O 64-bit reverse
+			(buffer[0] == 0xce && buffer[1] == 0xfa && buffer[2] == 0xed && buffer[3] == 0xfe) { // Mach-O 32-bit reverse
+			// This is a native macOS executable - likely Claude Desktop
+			return false
+		}
+
+		// Check for ELF magic numbers (Linux executables)
+		if buffer[0] == 0x7f && buffer[1] == 'E' && buffer[2] == 'L' && buffer[3] == 'F' {
+			// This is a native Linux executable - likely Claude Desktop
+			return false
+		}
+	}
+
+	// If we can't definitively identify it as Claude Code, be conservative and reject it
+	return false
 }
 
 // FindClaudeBinary finds the Claude binary using OS defaults
