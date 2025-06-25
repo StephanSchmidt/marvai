@@ -1,8 +1,8 @@
+**----- NOT SAFE FOR PRODUCTION -----**
+
 # Marvai
 
 <img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
-
-**----- NOT SAFE FOR PRODUCTION -----**
 
 A CLI tool for managing and executing prompts in your projects.
 Think *NPM for prompts*. You can download prompts for Claude Code
