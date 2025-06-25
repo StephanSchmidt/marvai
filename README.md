@@ -21,6 +21,8 @@ go install github.com/StephanSchmidt/marvai@latest
 ## 'Hello World' Example
 
 ```bash
+$ marvai list 
+...
 $ marvai install helloworld
 # will ask you the language
 For what language? Go
