@@ -1388,9 +1388,104 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 	case "installed":
 		return ListInstalledPrompts(fs)
 
+	case "create":
+		if len(args) < 3 {
+			fmt.Fprintf(stderr, "Usage: %s create <filename>\n", args[0])
+			return fmt.Errorf("filename required")
+		}
+		filename := args[2]
+		return CreateMPrompt(fs, filename)
+
 	default:
 		// Backward compatibility: if no command specified, treat as prompt
 		promptName := args[1]
 		return RunWithPrompt(fs, promptName)
 	}
+}
+
+// CreateMPrompt creates a new .mprompt file with wizard-driven frontmatter collection
+func CreateMPrompt(fs afero.Fs, filename string) error {
+	// Check if user provided .mprompt extension (user error)
+	if strings.HasSuffix(filename, ".mprompt") {
+		return fmt.Errorf("filename should not include .mprompt extension, this is probably not what you wanted")
+	}
+	// Add .mprompt extension
+	filename += ".mprompt"
+
+	// Check if file already exists
+	if exists, err := afero.Exists(fs, filename); err != nil {
+		return fmt.Errorf("failed to check if file exists: %w", err)
+	} else if exists {
+		return fmt.Errorf("file %s already exists", filename)
+	}
+
+	fmt.Printf("Creating new mprompt file: %s\n\n", filename)
+
+	// Collect frontmatter through wizard
+	frontmatter := map[string]interface{}{}
+	
+	// Name
+	fmt.Print("Enter prompt name: ")
+	name, err := readUserInput()
+	if err != nil {
+		return fmt.Errorf("failed to read name: %w", err)
+	}
+	frontmatter["name"] = name
+
+	// Description
+	fmt.Print("Enter prompt description: ")
+	description, err := readUserInput()
+	if err != nil {
+		return fmt.Errorf("failed to read description: %w", err)
+	}
+	frontmatter["description"] = description
+
+	// Author
+	fmt.Print("Enter author name: ")
+	author, err := readUserInput()
+	if err != nil {
+		return fmt.Errorf("failed to read author: %w", err)
+	}
+	frontmatter["author"] = author
+
+	// Version
+	fmt.Print("Enter version (default: 1.0): ")
+	version, err := readUserInput()
+	if err != nil {
+		return fmt.Errorf("failed to read version: %w", err)
+	}
+	if version == "" {
+		version = "1.0"
+	}
+	frontmatter["version"] = version
+
+	// Convert frontmatter to YAML
+	frontmatterYAML, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal frontmatter: %w", err)
+	}
+
+	// Create the mprompt file content
+	content := fmt.Sprintf("%s--\n\n--\nEnter your prompt template here\n", string(frontmatterYAML))
+
+	// Write the file
+	err = afero.WriteFile(fs, filename, []byte(content), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	fmt.Printf("\n✓ Created %s successfully!\n", filename)
+	fmt.Printf("You can now edit the file to add your prompt template.\n")
+	fmt.Printf("To add wizard variables, edit the middle section between the '--' separators.\n")
+
+	return nil
+}
+
+// readUserInput reads a line of input from the user
+func readUserInput() (string, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		return strings.TrimSpace(scanner.Text()), nil
+	}
+	return "", scanner.Err()
 }

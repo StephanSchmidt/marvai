@@ -4,7 +4,18 @@
 
 **----- NOT SAFE FOR PRODUCTION -----**
 
-A CLI tool for managing and executing prompt templates with interactive wizards.
+A CLI tool for managing and executing prompts in your projects.
+Think *NPM for prompts*. You can download prompts for Claude Code
+either from a distro or from GitHub repositories and then use 
+in your projects.
+
+Examples:
+* Security Scanning
+* Bug finding
+* Dependency upgrades
+* Programming language upgrades 
+
+automated with Claude Code prompts.
 
 ## Install
 
