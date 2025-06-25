@@ -1,12 +1,12 @@
 **----- NOT SAFE FOR PRODUCTION -----**
 
-# Marvai
+# MarvAI
 
 <img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
-A CLI tool for managing and executing prompts in your projects.
+A CLI packaging tool for managing and executing AI prompts in your projects.
 Think *NPM for prompts*. You can download prompts for Claude Code
-either from a distro or from GitHub repositories and then use 
+either from a the MarvAI distribution or from GitHub repositories and then use 
 in your projects.
 
 Examples:
