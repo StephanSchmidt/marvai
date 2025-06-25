@@ -2,6 +2,8 @@ package marvai
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -357,6 +359,7 @@ type PromptEntry struct {
 	Author      string `yaml:"author"`
 	Version     string `yaml:"version"`
 	File        string `yaml:"file"`
+	SHA256      string `yaml:"sha256,omitempty"`
 }
 
 // MPromptData represents the parsed .mprompt file
@@ -484,6 +487,25 @@ func validateSafeFilename(filename string) error {
 	return nil
 }
 
+// verifySHA256 compares the SHA256 hash of content against an expected hash
+func verifySHA256(content []byte, expectedHash string) error {
+	if expectedHash == "" {
+		return nil // No hash provided, skip verification
+	}
+	
+	// Calculate actual SHA256 hash
+	hasher := sha256.New()
+	hasher.Write(content)
+	actualHash := hex.EncodeToString(hasher.Sum(nil))
+	
+	// Compare hashes (case-insensitive)
+	if !strings.EqualFold(actualHash, expectedHash) {
+		return fmt.Errorf("SHA256 verification failed: expected %s, got %s", expectedHash, actualHash)
+	}
+	
+	return nil
+}
+
 // validateWizardVariables validates wizard variable definitions for security
 func validateWizardVariables(variables []WizardVariable) error {
 	if len(variables) > 100 { // Reasonable limit
@@ -544,7 +566,7 @@ func ExecuteWizard(variables []WizardVariable) (map[string]string, error) {
 }
 
 // ExecuteWizardWithReader prompts the user for variable values using the provided reader
-func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[string]string, error) {
+func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[string]string, error) {	
 	values := make(map[string]string)
 	scanner := bufio.NewScanner(reader)
 
@@ -1138,6 +1160,11 @@ func InstallMPromptByName(fs afero.Fs, promptName string) error {
 	// Check size limit
 	if len(promptContent) > maxSize {
 		return fmt.Errorf(".mprompt file too large (%d bytes), maximum allowed is %d bytes", len(promptContent), maxSize)
+	}
+
+	// Verify SHA256 hash if provided
+	if err := verifySHA256(promptContent, promptEntry.SHA256); err != nil {
+		return fmt.Errorf("SHA256 verification failed for %s: %w", promptURL, err)
 	}
 
 	// Parse the downloaded .mprompt file

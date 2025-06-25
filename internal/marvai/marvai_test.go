@@ -1193,3 +1193,57 @@ func TestInstalledCommand(t *testing.T) {
 		t.Errorf("Expected output to contain prompt names, got: %q", actualOutput)
 	}
 }
+
+func TestVerifySHA256(t *testing.T) {
+	tests := []struct {
+		name         string
+		content      []byte
+		expectedHash string
+		expectError  bool
+	}{
+		{
+			name:         "valid hash matches",
+			content:      []byte("hello world"),
+			expectedHash: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+			expectError:  false,
+		},
+		{
+			name:         "case insensitive hash matches",
+			content:      []byte("hello world"),
+			expectedHash: "B94D27B9934D3E08A52E52D7DA7DABFAC484EFE37A5380EE9088F7ACE2EFCDE9",
+			expectError:  false,
+		},
+		{
+			name:         "empty hash (skip verification)",
+			content:      []byte("hello world"),
+			expectedHash: "",
+			expectError:  false,
+		},
+		{
+			name:         "invalid hash does not match",
+			content:      []byte("hello world"),
+			expectedHash: "invalid_hash",
+			expectError:  true,
+		},
+		{
+			name:         "wrong hash does not match",
+			content:      []byte("hello world"),
+			expectedHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := verifySHA256(tt.content, tt.expectedHash)
+			
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
