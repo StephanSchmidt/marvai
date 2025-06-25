@@ -295,7 +295,7 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 		return fmt.Errorf("error starting claude: %w", err)
 	}
 
-	// Write content to stdin in a goroutine, but ensure proper cleanup
+	// Write content to stdin in a goroutine with proper synchronization
 	done := make(chan error, 1)
 	go func() {
 		defer stdin.Close()
@@ -307,19 +307,22 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 		done <- writeErr
 	}()
 
+	// Wait for both the write goroutine and command to complete
+	var writeErr error
+	select {
+	case writeErr = <-done:
+		// Write completed, now wait for command
+	case <-time.After(10 * time.Second):
+		// Timeout waiting for write to complete
+		return fmt.Errorf("timeout waiting for stdin write to complete")
+	}
+
 	// Wait for command to complete
 	waitErr := cmd.Wait()
 
-	// Wait for the write goroutine to complete or timeout
-	select {
-	case writeErr := <-done:
-		if writeErr != nil && waitErr == nil {
-			// Only report write error if command didn't fail
-			return fmt.Errorf("error writing to claude stdin: %w", writeErr)
-		}
-	case <-time.After(5 * time.Second):
-		// Timeout waiting for write to complete
-		return fmt.Errorf("timeout waiting for stdin write to complete")
+	// Return appropriate error
+	if writeErr != nil && waitErr == nil {
+		return fmt.Errorf("error writing to claude stdin: %w", writeErr)
 	}
 
 	if waitErr != nil {
@@ -566,7 +569,11 @@ func ExecuteWizard(variables []WizardVariable) (map[string]string, error) {
 }
 
 // ExecuteWizardWithReader prompts the user for variable values using the provided reader
-func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[string]string, error) {	
+func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[string]string, error) {
+	if reader == nil {
+		return nil, fmt.Errorf("reader cannot be nil")
+	}
+	
 	values := make(map[string]string)
 	scanner := bufio.NewScanner(reader)
 
@@ -582,7 +589,11 @@ func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[
 			if err := scanner.Err(); err != nil {
 				return nil, fmt.Errorf("error reading input for variable '%s': %w", variable.ID, err)
 			}
-			return nil, fmt.Errorf("error reading input for variable '%s'", variable.ID)
+			// Handle EOF case - treat as empty input
+			if variable.Required {
+				return nil, fmt.Errorf("variable '%s' is required but EOF encountered", variable.ID)
+			}
+			values[variable.ID] = ""
 		}
 	}
 
@@ -968,7 +979,8 @@ func fetchRemotePrompts() ([]PromptEntry, error) {
 
 	// Parse each entry as YAML
 	var promptEntries []PromptEntry
-	for _, entryText := range entryTexts {
+	var skippedEntries int
+	for i, entryText := range entryTexts {
 		trimmed := strings.TrimSpace(entryText)
 		if trimmed == "" {
 			continue
@@ -976,14 +988,24 @@ func fetchRemotePrompts() ([]PromptEntry, error) {
 
 		var entry PromptEntry
 		if err := yaml.Unmarshal([]byte(trimmed), &entry); err != nil {
-			// Skip invalid entries rather than failing completely
+			// Log warning for invalid entries but don't fail completely
+			fmt.Printf("Warning: Failed to parse prompt entry %d: %v\n", i+1, err)
+			skippedEntries++
 			continue
 		}
 
 		// Validate required fields
 		if entry.Name != "" && entry.File != "" {
 			promptEntries = append(promptEntries, entry)
+		} else {
+			fmt.Printf("Warning: Prompt entry %d missing required fields (name: %q, file: %q)\n", 
+				i+1, entry.Name, entry.File)
+			skippedEntries++
 		}
+	}
+
+	if skippedEntries > 0 {
+		fmt.Printf("Warning: Skipped %d invalid prompt entries\n", skippedEntries)
 	}
 
 	return promptEntries, nil
@@ -1371,7 +1393,7 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		mpromptSource := args[2]
 		
 		// Check if this looks like a URL or local file
-		if strings.HasPrefix(mpromptSource, "https://") || strings.Contains(mpromptSource, ".") {
+		if strings.HasPrefix(mpromptSource, "https://") || strings.HasSuffix(mpromptSource, ".mprompt") || strings.Contains(mpromptSource, "/") {
 			// Install from URL or local file
 			return InstallMPrompt(fs, mpromptSource)
 		} else {

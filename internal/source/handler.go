@@ -35,16 +35,10 @@ func NewFileHandler(fs afero.Fs) *FileHandler {
 
 // CanHandle returns true for non-URL sources (local files)
 func (h *FileHandler) CanHandle(source string) bool {
-	// If it's not a URL, we assume it's a local file
-	_, err := url.Parse(source)
-	if err != nil {
-		return true // Parse error likely means it's not a URL
-	}
-
-	// Check if it has a scheme (http/https)
+	// Parse URL once and check if it has a scheme
 	parsed, err := url.Parse(source)
 	if err != nil {
-		return true
+		return true // Parse error likely means it's not a URL
 	}
 
 	return parsed.Scheme == ""
@@ -252,6 +246,17 @@ func (h *HTTPSHandler) transformToRawURL(githubURL string) (string, error) {
 	pathParts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
 	if len(pathParts) < 2 {
 		return "", fmt.Errorf("invalid GitHub URL format: expected /owner/repo/..., got: %s", parsed.Path)
+	}
+
+	// Validate path components for security
+	for i, part := range pathParts {
+		if part == "" || part == "." || part == ".." {
+			return "", fmt.Errorf("invalid path component at position %d: %q", i, part)
+		}
+		// Check for suspicious characters
+		if strings.ContainsAny(part, "\x00\r\n") {
+			return "", fmt.Errorf("invalid characters in path component: %q", part)
+		}
 	}
 
 	owner := pathParts[0]

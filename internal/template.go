@@ -77,14 +77,18 @@ func validateTemplate(template string) error {
 	maxNested := 50 // Reasonable limit
 
 	for i := 0; i < len(template); i++ {
-		if i < len(template)-3 && template[i:i+3] == "{{#" {
+		// Ensure we have enough characters left for the pattern
+		if i+2 < len(template) && template[i:i+3] == "{{#" {
 			nestedLevel++
 			if nestedLevel > maxNested {
 				return fmt.Errorf("template has too many nested constructs (%d), maximum allowed is %d",
 					nestedLevel, maxNested)
 			}
-		} else if i < len(template)-3 && template[i:i+3] == "{{/" {
-			nestedLevel--
+		} else if i+2 < len(template) && template[i:i+3] == "{{/" {
+			// Prevent negative nesting levels
+			if nestedLevel > 0 {
+				nestedLevel--
+			}
 		}
 	}
 
