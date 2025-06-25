@@ -17,17 +17,17 @@ Examples:
 
 automated with Claude Code prompts.
 
+## Features 
+
+- **Find prompts for your problems**: Find a prompt in the MarvAI repository
+- **Manage your prompt library**: Install, update, and organize prompts locally
+- **Execute prompts seamlessly**: Run AI prompts with Claude Code integration
+
 ## Install
 
 ```bash
 go install github.com/StephanSchmidt/marvai@latest
 ```
-
-## Features
-
-- **Interactive Wizards**: Define variables with questions to prompt users for input
-- **Templates**: Use powerful templating with `{{variablename}}` placeholders
-- **Claude Integration**: Execute generated prompts directly with Claude Code
 
 ## 'Hello World' Example
 
@@ -90,6 +90,13 @@ $ marvai installed
 Found 1 installed prompt(s):
   Example v0.4 - An example (by Stephan Schmidt) (configured)
 ```
+
+
+# Features For Prompt Developers
+
+- **Interactive Wizards**: Define variables with questions to prompt users for input
+- **Templates**: Use powerful templating with `{{variablename}}` placeholders
+- **Claude Integration**: Execute generated prompts directly with Claude Code
 
 ## .mprompt File Format
 
