@@ -6,7 +6,7 @@
 
 A CLI packaging tool for managing and executing AI prompts in your projects.
 Think *NPM for prompts*. You can download prompts for Claude Code
-either from a the MarvAI distribution or from GitHub repositories and then use 
+either from the MarvAI distribution or from GitHub repositories and then use 
 in your projects.
 
 Examples:
