@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/StephanSchmidt/marvai/internal"
@@ -38,9 +39,9 @@ func (o OSCommandRunner) LookPath(file string) (string, error) {
 	return exec.LookPath(file)
 }
 
-// FindClaudeBinaryWithRunner finds the Claude binary using dependency injection for testing
-func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, homeDir string) string {
-	// SECURITY: First try to find claude in secure, well-known paths
+// FindCliBinaryWithRunner finds the specified CLI binary using dependency injection for testing
+func FindCliBinaryWithRunner(cliTool string, runner CommandRunner, fs afero.Fs, goos string, homeDir string) string {
+	// SECURITY: First try to find the CLI tool in secure, well-known paths
 	// Avoid using PATH to prevent binary hijacking
 
 	// Define secure installation paths by OS
@@ -49,43 +50,45 @@ func FindClaudeBinaryWithRunner(runner CommandRunner, fs afero.Fs, goos string, 
 	switch goos {
 	case "darwin":
 		securePaths = []string{
-			"/usr/local/bin/claude",
-			"/opt/homebrew/bin/claude",
-			"/Applications/Claude.app/Contents/MacOS/claude",
+			"/usr/local/bin/" + cliTool,
+			"/opt/homebrew/bin/" + cliTool,
+		}
+		if cliTool == "claude" {
+			securePaths = append(securePaths, "/Applications/Claude.app/Contents/MacOS/claude")
 		}
 		// Only add user paths if homeDir is secure
 		if isSecureHomeDir(homeDir) {
-			securePaths = append(securePaths, filepath.Join(homeDir, ".local", "bin", "claude"))
+			securePaths = append(securePaths, filepath.Join(homeDir, ".local", "bin", cliTool))
 		}
 	default: // linux and others
 		securePaths = []string{
-			"/usr/local/bin/claude",
-			"/usr/bin/claude",
+			"/usr/local/bin/" + cliTool,
+			"/usr/bin/" + cliTool,
 		}
 		// Only add user paths if homeDir is secure
 		if isSecureHomeDir(homeDir) {
 			securePaths = append(securePaths,
-				filepath.Join(homeDir, ".local", "bin", "claude"),
-				filepath.Join(homeDir, "bin", "claude"))
+				filepath.Join(homeDir, ".local", "bin", cliTool),
+				filepath.Join(homeDir, "bin", cliTool))
 		}
 	}
 
 	// Check secure paths first
 	for _, path := range securePaths {
-		if isValidClaudeBinary(fs, path) {
+		if isValidCliBinary(fs, path) {
 			return path
 		}
 	}
 
 	// SECURITY: Only use PATH as last resort and validate the result
-	if path, err := runner.LookPath("claude"); err == nil {
-		if isValidClaudeBinary(fs, path) {
+	if path, err := runner.LookPath(cliTool); err == nil {
+		if isValidCliBinary(fs, path) {
 			return path
 		}
 	}
 
-	// Fallback to just "claude" if nothing found
-	return "claude"
+	// Fallback to just the tool name if nothing found
+	return cliTool
 }
 
 // isSecureHomeDir validates that the home directory is secure
@@ -105,8 +108,8 @@ func isSecureHomeDir(homeDir string) bool {
 	return true
 }
 
-// isValidClaudeBinary validates that a binary is actually the claude binary
-func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
+// isValidCliBinary validates that a binary is actually a valid CLI tool binary
+func isValidCliBinary(fs afero.Fs, binaryPath string) bool {
 	// Check if file exists and is executable
 	fileInfo, err := fs.Stat(binaryPath)
 	if err != nil {
@@ -140,13 +143,18 @@ func isValidClaudeBinary(fs afero.Fs, binaryPath string) bool {
 	return true
 }
 
-// FindClaudeBinary finds the Claude binary using OS defaults
-func FindClaudeBinary() string {
+// FindCliBinary finds the specified CLI binary using OS defaults
+func FindCliBinary(cliTool string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		homeDir = "/" // Fallback to root if home directory can't be determined
 	}
-	return FindClaudeBinaryWithRunner(OSCommandRunner{}, afero.NewOsFs(), runtime.GOOS, homeDir)
+	return FindCliBinaryWithRunner(cliTool, OSCommandRunner{}, afero.NewOsFs(), runtime.GOOS, homeDir)
+}
+
+// FindClaudeBinary finds the Claude binary using OS defaults (for backward compatibility)
+func FindClaudeBinary() string {
+	return FindCliBinary("claude")
 }
 
 // ValidatePromptName validates that a prompt name is safe to use
@@ -273,15 +281,15 @@ func validateFileWithinMarvaiDirectory(filePath string) error {
 	return nil
 }
 
-// RunWithPromptAndRunner executes Claude with a prompt using dependency injection for testing
-func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner, stdout, stderr io.Writer) error {
+// RunWithPromptAndRunner executes the specified CLI tool with a prompt using dependency injection for testing
+func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runner CommandRunner, stdout, stderr io.Writer) error {
 	content, err := LoadPrompt(fs, promptName)
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
-	claudePath := FindClaudeBinary()
-	cmd := runner.Command(claudePath)
+	cliPath := FindCliBinary(cliTool)
+	cmd := runner.Command(cliPath)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
@@ -292,7 +300,7 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 
 	if err := cmd.Start(); err != nil {
 		stdin.Close() // Clean up stdin pipe if command fails to start
-		return fmt.Errorf("error starting claude: %w", err)
+		return fmt.Errorf("error starting %s: %w", cliTool, err)
 	}
 
 	// Write content to stdin in a goroutine with proper synchronization
@@ -301,8 +309,14 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 		defer stdin.Close()
 		_, writeErr := stdin.Write(content)
 		if writeErr == nil {
-			// Send /exit command to terminate Claude after processing the prompt
-			_, writeErr = stdin.Write([]byte("\n/exit\n"))
+			// Send /exit command to terminate CLI tool after processing the prompt
+			// Note: This works for Claude, other tools may need different exit commands
+			if cliTool == "claude" {
+				_, writeErr = stdin.Write([]byte("\n/exit\n"))
+			} else {
+				// For other tools, just close stdin to signal end of input
+				// Individual tools may require different exit strategies
+			}
 		}
 		done <- writeErr
 	}()
@@ -322,19 +336,19 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, runner CommandRunner
 
 	// Return appropriate error
 	if writeErr != nil && waitErr == nil {
-		return fmt.Errorf("error writing to claude stdin: %w", writeErr)
+		return fmt.Errorf("error writing to %s stdin: %w", cliTool, writeErr)
 	}
 
 	if waitErr != nil {
-		return fmt.Errorf("error running claude: %w", waitErr)
+		return fmt.Errorf("error running %s: %w", cliTool, waitErr)
 	}
 
 	return nil
 }
 
-// RunWithPrompt executes Claude with a prompt using OS defaults
-func RunWithPrompt(fs afero.Fs, promptName string) error {
-	return RunWithPromptAndRunner(fs, promptName, OSCommandRunner{}, os.Stdout, os.Stderr)
+// RunWithPrompt executes the specified CLI tool with a prompt using OS defaults
+func RunWithPrompt(fs afero.Fs, promptName string, cliTool string) error {
+	return RunWithPromptAndRunner(fs, promptName, cliTool, OSCommandRunner{}, os.Stdout, os.Stderr)
 }
 
 // WizardVariable represents a variable in the wizard section
@@ -1345,84 +1359,139 @@ func showWelcomeScreen(w io.Writer) {
 	
 	// Define content lines
 	line1 := " ✻ Welcome to Marvai!"
-	line2 := "   Prompt templates for Claude Code"
+	line2 := "   Prompt templates for Claude Code & Gemini"
 	line3 := "   Commands:"
 	line4 := "     marvai install <source>  Install a prompt"
 	line5 := "     marvai list              List available prompts"
 	line6 := "     marvai prompt <name>     Execute a prompt"
-	line7 := "   cwd: " + cwd
+	line7 := "     marvai --cli gemini <cmd>  Use Gemini instead"
+	line8 := "   cwd: " + cwd
 	
 	fmt.Fprintf(w, "%s╭────────────────────────────────────────────────────────╮%s\n", cyan, reset)
 	fmt.Fprintf(w, "%s│%s %s✻ Welcome to Marvai!%s%s%s│%s\n", cyan, reset, bold+green, reset, strings.Repeat(" ", boxWidth-len(line1)+2), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
-	fmt.Fprintf(w, "%s│%s   %sPrompt templates for Claude Code%s%s%s│%s\n", cyan, reset, yellow, reset, strings.Repeat(" ", boxWidth-len(line2)), cyan, reset)
+	fmt.Fprintf(w, "%s│%s   %sPrompt templates for Claude Code & Gemini%s%s%s│%s\n", cyan, reset, yellow, reset, strings.Repeat(" ", boxWidth-len(line2)), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line3), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line4), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line5), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line6), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line7), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
+	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line8), cyan, reset)
 	fmt.Fprintf(w, "%s╰────────────────────────────────────────────────────────╯%s\n", cyan, reset)
 }
 
-// Run executes the main application logic
+// Run executes the main application logic using Cobra for command-line parsing
 func Run(args []string, fs afero.Fs, stderr io.Writer) error {
-	if len(args) < 2 {
-		showWelcomeScreen(stderr)
-		return fmt.Errorf("insufficient arguments: expected at least 1 command")
+	var cliTool string
+	
+	// Create root command
+	rootCmd := &cobra.Command{
+		Use:   "marvai",
+		Short: "Prompt templates for Claude Code and other AI CLI tools",
+		Long:  "Marvai is a CLI tool for managing and executing prompt templates with Claude Code, Gemini, and other AI CLI tools.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				showWelcomeScreen(stderr)
+				return
+			}
+			// Backward compatibility: if no subcommand specified, treat first arg as prompt name
+			promptName := args[0]
+			if err := RunWithPrompt(fs, promptName, cliTool); err != nil {
+				fmt.Fprintf(stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
 	}
 
-	command := args[1]
-
-	switch command {
-	case "prompt":
-		if len(args) < 3 {
-			fmt.Fprintf(stderr, "Usage: %s prompt <prompt-name>\n", args[0])
-			return fmt.Errorf("prompt name required")
+	// Add global flag for CLI tool selection
+	rootCmd.PersistentFlags().StringVar(&cliTool, "cli", "claude", "CLI tool to use (claude, gemini)")
+	
+	// Add validation for CLI tool
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if cliTool != "claude" && cliTool != "gemini" {
+			return fmt.Errorf("invalid CLI tool '%s'. Available tools: claude, gemini", cliTool)
 		}
-		promptName := args[2]
-		return RunWithPrompt(fs, promptName)
-
-	case "install":
-		if len(args) < 3 {
-			fmt.Fprintf(stderr, "Usage: %s install <source>\n", args[0])
-			fmt.Fprintf(stderr, "  <source> can be a local file name, HTTPS URL, or prompt name from remote distro\n")
-			return fmt.Errorf("mprompt source required")
-		}
-		mpromptSource := args[2]
-		
-		// Check if this looks like a URL or local file
-		if strings.HasPrefix(mpromptSource, "https://") || strings.HasSuffix(mpromptSource, ".mprompt") || strings.Contains(mpromptSource, "/") {
-			// Install from URL or local file
-			return InstallMPrompt(fs, mpromptSource)
-		} else {
-			// Install by name from remote distro
-			return InstallMPromptByName(fs, mpromptSource)
-		}
-
-	case "list":
-		return ListRemotePrompts(fs)
-
-	case "list-local":
-		return ListMPromptFiles(fs)
-
-	case "installed":
-		return ListInstalledPrompts(fs)
-
-	case "create":
-		if len(args) < 3 {
-			fmt.Fprintf(stderr, "Usage: %s create <filename>\n", args[0])
-			return fmt.Errorf("filename required")
-		}
-		filename := args[2]
-		return CreateMPrompt(fs, filename)
-
-	default:
-		// Backward compatibility: if no command specified, treat as prompt
-		promptName := args[1]
-		return RunWithPrompt(fs, promptName)
+		return nil
 	}
+
+	// Create prompt command
+	promptCmd := &cobra.Command{
+		Use:   "prompt <prompt-name>",
+		Short: "Execute a prompt template",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunWithPrompt(fs, args[0], cliTool)
+		},
+	}
+
+	// Create install command
+	installCmd := &cobra.Command{
+		Use:   "install <source>",
+		Short: "Install a prompt from a source",
+		Long:  "Install a prompt from a local file, HTTPS URL, or prompt name from remote distro",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mpromptSource := args[0]
+			
+			// Check if this looks like a URL or local file
+			if strings.HasPrefix(mpromptSource, "https://") || strings.HasSuffix(mpromptSource, ".mprompt") || strings.Contains(mpromptSource, "/") {
+				// Install from URL or local file
+				return InstallMPrompt(fs, mpromptSource)
+			} else {
+				// Install by name from remote distro
+				return InstallMPromptByName(fs, mpromptSource)
+			}
+		},
+	}
+
+	// Create list command
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available remote prompts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ListRemotePrompts(fs)
+		},
+	}
+
+	// Create list-local command
+	listLocalCmd := &cobra.Command{
+		Use:   "list-local",
+		Short: "List local .mprompt files",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ListMPromptFiles(fs)
+		},
+	}
+
+	// Create installed command
+	installedCmd := &cobra.Command{
+		Use:   "installed",
+		Short: "List installed prompts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ListInstalledPrompts(fs)
+		},
+	}
+
+	// Create create command
+	createCmd := &cobra.Command{
+		Use:   "create <filename>",
+		Short: "Create a new .mprompt file",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return CreateMPrompt(fs, args[0])
+		},
+	}
+
+	// Add all commands to root
+	rootCmd.AddCommand(promptCmd, installCmd, listCmd, listLocalCmd, installedCmd, createCmd)
+
+	// Set up command line arguments
+	rootCmd.SetArgs(args[1:]) // Skip program name
+	rootCmd.SetErr(stderr)
+
+	// Execute the command
+	return rootCmd.Execute()
 }
 
 // CreateMPrompt creates a new .mprompt file with wizard-driven frontmatter collection
