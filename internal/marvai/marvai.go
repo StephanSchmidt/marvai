@@ -289,10 +289,24 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	}
 
 	cliPath := FindCliBinary(cliTool)
-	cmd := runner.Command(cliPath)
+	
+	var cmd *exec.Cmd
+	if cliTool == "codex" {
+		// For codex, pass the prompt as a command-line argument
+		cmd = runner.Command(cliPath, string(content))
+		cmd.Stdout = stdout
+		cmd.Stderr = stderr
+		// For codex, just run the command directly since prompt is passed as argument
+		return cmd.Run()
+	} else {
+		// For claude and gemini, use stdin
+		cmd = runner.Command(cliPath)
+	}
+	
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
+	// For claude and gemini, use stdin
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("error creating stdin pipe: %w", err)
@@ -1406,12 +1420,12 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 	}
 
 	// Add global flag for CLI tool selection
-	rootCmd.PersistentFlags().StringVar(&cliTool, "cli", "claude", "CLI tool to use (claude, gemini)")
+	rootCmd.PersistentFlags().StringVar(&cliTool, "cli", "claude", "CLI tool to use (claude, gemini, codex)")
 	
 	// Add validation for CLI tool
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if cliTool != "claude" && cliTool != "gemini" {
-			return fmt.Errorf("invalid CLI tool '%s'. Available tools: claude, gemini", cliTool)
+		if cliTool != "claude" && cliTool != "gemini" && cliTool != "codex" {
+			return fmt.Errorf("invalid CLI tool '%s'. Available tools: claude, gemini, codex", cliTool)
 		}
 		return nil
 	}
