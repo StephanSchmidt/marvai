@@ -261,7 +261,7 @@ func TestBinaryHijacking(t *testing.T) {
 	}
 
 	// Test that the function properly validates binaries
-	claudePath := marvai.FindClaudeBinaryWithRunner(mockRunner, fs, "linux", "/home/user")
+	claudePath := marvai.FindCliBinaryWithRunner("claude", mockRunner, fs, "linux", "/home/user")
 
 	// The security protection should either:
 	// 1. Reject the malicious binary and return empty string, or
@@ -277,7 +277,7 @@ func TestBinaryHijacking(t *testing.T) {
 
 	// Test with legitimate binary
 	mockRunner.lookPathResult = legitimateBinary
-	claudePath = marvai.FindClaudeBinaryWithRunner(mockRunner, fs, "linux", "/home/user")
+	claudePath = marvai.FindCliBinaryWithRunner("claude", mockRunner, fs, "linux", "/home/user")
 
 	if claudePath == legitimateBinary || claudePath != "" {
 		t.Logf("✅ Legitimate binary properly accepted: %q", claudePath)

@@ -19,7 +19,7 @@ func TestMainIntegration(t *testing.T) {
 		{
 			name:        "insufficient arguments",
 			args:        []string{"program"},
-			expectError: true,
+			expectError: false, // Now shows welcome screen instead of error
 		},
 		{
 			name:        "command validation",

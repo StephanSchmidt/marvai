@@ -168,7 +168,7 @@ func TestFindClaudeBinaryWithRunner(t *testing.T) {
 			}
 
 			// Test function
-			result := FindClaudeBinaryWithRunner(mockRunner, fs, tt.goos, tt.homeDir)
+			result := FindCliBinaryWithRunner("claude", mockRunner, fs, tt.goos, tt.homeDir)
 
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
@@ -187,18 +187,18 @@ func TestRun(t *testing.T) {
 		{
 			name:          "insufficient arguments",
 			args:          []string{"program"},
-			expectedError: "insufficient arguments",
+			expectedError: "", // No error now, shows welcome screen
 			checkStderr:   false,
 		},
 		{
 			name:          "prompt command without name",
 			args:          []string{"program", "prompt"},
-			expectedError: "prompt name required",
+			expectedError: "accepts 1 arg(s), received 0",
 		},
 		{
 			name:          "install command without name",
 			args:          []string{"program", "install"},
-			expectedError: "mprompt source required",
+			expectedError: "accepts 1 arg(s), received 0",
 		},
 	}
 
@@ -663,7 +663,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 
 			// Test RunWithPromptAndRunner
-			err := RunWithPromptAndRunner(fs, "test", runner, &stdout, &stderr)
+			err := RunWithPromptAndRunner(fs, "test", "claude", runner, &stdout, &stderr)
 
 			if tt.expectError {
 				if err == nil {
