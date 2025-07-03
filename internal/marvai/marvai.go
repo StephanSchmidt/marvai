@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/StephanSchmidt/marvai/internal"
-	"github.com/StephanSchmidt/marvai/internal/source"
+	"github.com/marvai-dev/marvai/internal"
+	"github.com/marvai-dev/marvai/internal/source"
 )
 
 // CommandRunner interface for abstracting command execution

@@ -1,4 +1,4 @@
-module github.com/StephanSchmidt/marvai
+module github.com/marvai-dev/marvai
 
 go 1.23.0
 
