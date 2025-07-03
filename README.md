@@ -2,7 +2,7 @@
 
 # MarvAI
 
-<img src="https://raw.githubusercontent.com/StephanSchmidt/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
+<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
 A CLI packaging tool for managing and executing AI prompts in your projects.
 Think *NPM for prompts*. You can download prompts for Claude Code
@@ -25,8 +25,14 @@ automated with Claude Code prompts.
 
 ## Install
 
+With Brew:
 ```bash
-go install github.com/StephanSchmidt/marvai@latest
+brew install marvai-dev/marvai/marvai
+```
+
+With Go:
+```bash
+go install github.com/marvai-dev/marvai@latest
 ```
 
 ## 'Hello World' Example
@@ -51,8 +57,6 @@ Install a `.mprompt` file by running its wizard and generating configuration fil
 
 ```bash
 > marvai install helloworld
-# or from Github
-> marvai install https://github.com/StephanSchmidt/helloworldprompt
 ```
 
 This will:
