@@ -1343,6 +1343,18 @@ func ListRemotePrompts(fs afero.Fs) error {
 	return nil
 }
 
+// ShowVersion displays the version information
+func ShowVersion(fs afero.Fs) error {
+	versionBytes, err := afero.ReadFile(fs, "version.txt")
+	if err != nil {
+		return fmt.Errorf("failed to read version file: %w", err)
+	}
+	
+	version := strings.TrimSpace(string(versionBytes))
+	fmt.Printf("marvai version %s\n", version)
+	return nil
+}
+
 // showWelcomeScreen displays a welcome message similar to Claude Code
 func showWelcomeScreen(w io.Writer) {
 	// ANSI color codes
@@ -1497,8 +1509,17 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		},
 	}
 
+	// Create version command
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ShowVersion(fs)
+		},
+	}
+
 	// Add all commands to root
-	rootCmd.AddCommand(promptCmd, installCmd, listCmd, listLocalCmd, installedCmd, createCmd)
+	rootCmd.AddCommand(promptCmd, installCmd, listCmd, listLocalCmd, installedCmd, createCmd, versionCmd)
 
 	// Set up command line arguments
 	rootCmd.SetArgs(args[1:]) // Skip program name
