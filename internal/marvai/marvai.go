@@ -289,7 +289,7 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	}
 
 	cliPath := FindCliBinary(cliTool)
-	
+
 	var cmd *exec.Cmd
 	if cliTool == "codex" {
 		// For codex, pass the prompt as a command-line argument
@@ -302,7 +302,7 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 		// For claude and gemini, use stdin
 		cmd = runner.Command(cliPath)
 	}
-	
+
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
@@ -523,17 +523,17 @@ func verifySHA256(content []byte, expectedHash string) error {
 	if expectedHash == "" {
 		return nil // No hash provided, skip verification
 	}
-	
+
 	// Calculate actual SHA256 hash
 	hasher := sha256.New()
 	hasher.Write(content)
 	actualHash := hex.EncodeToString(hasher.Sum(nil))
-	
+
 	// Compare hashes (case-insensitive)
 	if !strings.EqualFold(actualHash, expectedHash) {
 		return fmt.Errorf("SHA256 verification failed: expected %s, got %s", expectedHash, actualHash)
 	}
-	
+
 	return nil
 }
 
@@ -601,7 +601,7 @@ func ExecuteWizardWithReader(variables []WizardVariable, reader io.Reader) (map[
 	if reader == nil {
 		return nil, fmt.Errorf("reader cannot be nil")
 	}
-	
+
 	values := make(map[string]string)
 	scanner := bufio.NewScanner(reader)
 
@@ -1026,7 +1026,7 @@ func fetchRemotePrompts() ([]PromptEntry, error) {
 		if entry.Name != "" && entry.File != "" {
 			promptEntries = append(promptEntries, entry)
 		} else {
-			fmt.Printf("Warning: Prompt entry %d missing required fields (name: %q, file: %q)\n", 
+			fmt.Printf("Warning: Prompt entry %d missing required fields (name: %q, file: %q)\n",
 				i+1, entry.Name, entry.File)
 			skippedEntries++
 		}
@@ -1042,7 +1042,7 @@ func fetchRemotePrompts() ([]PromptEntry, error) {
 // findPromptByName searches for a prompt by name in the list of prompt entries
 func findPromptByName(prompts []PromptEntry, name string) (PromptEntry, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
-	
+
 	for _, entry := range prompts {
 		// Check exact name match
 		if strings.ToLower(entry.Name) == name {
@@ -1064,7 +1064,7 @@ func injectFilenameIntoMPrompt(content []byte, filename string) ([]byte, error) 
 	var result []string
 	section := 0 // 0=frontmatter, 1=wizard, 2=template
 	frontmatterLines := []string{}
-	
+
 	i := 0
 	// Collect frontmatter lines
 	for i < len(lines) {
@@ -1076,7 +1076,7 @@ func injectFilenameIntoMPrompt(content []byte, filename string) ([]byte, error) 
 		frontmatterLines = append(frontmatterLines, line)
 		i++
 	}
-	
+
 	// Parse existing frontmatter
 	var frontmatter MPromptFrontmatter
 	if len(frontmatterLines) > 0 {
@@ -1087,25 +1087,25 @@ func injectFilenameIntoMPrompt(content []byte, filename string) ([]byte, error) 
 			}
 		}
 	}
-	
+
 	// Add the filename to the frontmatter
 	frontmatter.File = filename
-	
+
 	// Marshal the updated frontmatter
 	updatedFrontmatter, err := yaml.Marshal(&frontmatter)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling updated frontmatter: %w", err)
 	}
-	
+
 	// Build the result
 	result = append(result, strings.TrimSpace(string(updatedFrontmatter)))
-	
+
 	// Add the rest of the content (from the first -- separator onwards)
 	for i < len(lines) {
 		result = append(result, lines[i])
 		i++
 	}
-	
+
 	return []byte(strings.Join(result, "\n")), nil
 }
 
@@ -1115,7 +1115,7 @@ func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) 
 	var result []string
 	section := 0 // 0=frontmatter, 1=wizard, 2=template
 	frontmatterLines := []string{}
-	
+
 	i := 0
 	// Collect frontmatter lines
 	for i < len(lines) {
@@ -1127,7 +1127,7 @@ func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) 
 		frontmatterLines = append(frontmatterLines, line)
 		i++
 	}
-	
+
 	// Parse existing frontmatter
 	var frontmatter MPromptFrontmatter
 	if len(frontmatterLines) > 0 {
@@ -1138,25 +1138,25 @@ func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) 
 			}
 		}
 	}
-	
+
 	// Add the source to the frontmatter
 	frontmatter.Source = sourceType
-	
+
 	// Marshal the updated frontmatter
 	updatedFrontmatter, err := yaml.Marshal(&frontmatter)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling updated frontmatter: %w", err)
 	}
-	
+
 	// Build the result
 	result = append(result, strings.TrimSpace(string(updatedFrontmatter)))
-	
+
 	// Add the rest of the content (from the first -- separator onwards)
 	for i < len(lines) {
 		result = append(result, lines[i])
 		i++
 	}
-	
+
 	return []byte(strings.Join(result, "\n")), nil
 }
 
@@ -1181,7 +1181,7 @@ func InstallMPromptByName(fs afero.Fs, promptName string) error {
 
 	// Download the actual .mprompt file
 	promptURL := fmt.Sprintf("https://distro.marvai.dev/%s", promptEntry.File)
-	
+
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -1343,12 +1343,9 @@ func ListRemotePrompts(fs afero.Fs) error {
 	return nil
 }
 
-// Version is set at build time via linker flags
-var Version = "dev"
-
 // ShowVersion displays the version information
-func ShowVersion(fs afero.Fs) error {
-	fmt.Printf("marvai version %s\n", Version)
+func ShowVersion(fs afero.Fs, version string) error {
+	fmt.Printf("marvai version %s\n", version)
 	return nil
 }
 
@@ -1362,16 +1359,16 @@ func showWelcomeScreen(w io.Writer) {
 		reset  = "\033[0m"
 		bold   = "\033[1m"
 	)
-	
+
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "unknown"
 	}
-	
+
 	// Box width is 56 characters inside the borders
 	const boxWidth = 56
-	
+
 	// Helper function to pad a line to exact width
 	padLine := func(content string) string {
 		if len(content) > boxWidth {
@@ -1379,7 +1376,7 @@ func showWelcomeScreen(w io.Writer) {
 		}
 		return content + strings.Repeat(" ", boxWidth-len(content))
 	}
-	
+
 	// Define content lines
 	line1 := " ✻ Welcome to Marvai!"
 	line2 := "   Prompt templates for Claude Code & Gemini"
@@ -1389,7 +1386,7 @@ func showWelcomeScreen(w io.Writer) {
 	line6 := "     marvai prompt <name>     Execute a prompt"
 	line7 := "     marvai --cli gemini <cmd>  Use Gemini instead"
 	line8 := "   cwd: " + cwd
-	
+
 	fmt.Fprintf(w, "%s╭────────────────────────────────────────────────────────╮%s\n", cyan, reset)
 	fmt.Fprintf(w, "%s│%s %s✻ Welcome to Marvai!%s%s%s│%s\n", cyan, reset, bold+green, reset, strings.Repeat(" ", boxWidth-len(line1)+2), cyan, reset)
 	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
@@ -1406,9 +1403,9 @@ func showWelcomeScreen(w io.Writer) {
 }
 
 // Run executes the main application logic using Cobra for command-line parsing
-func Run(args []string, fs afero.Fs, stderr io.Writer) error {
+func Run(args []string, fs afero.Fs, stderr io.Writer, version string) error {
 	var cliTool string
-	
+
 	// Create root command
 	rootCmd := &cobra.Command{
 		Use:   "marvai",
@@ -1430,7 +1427,7 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 
 	// Add global flag for CLI tool selection
 	rootCmd.PersistentFlags().StringVar(&cliTool, "cli", "claude", "CLI tool to use (claude, gemini, codex)")
-	
+
 	// Add validation for CLI tool
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if cliTool != "claude" && cliTool != "gemini" && cliTool != "codex" {
@@ -1457,7 +1454,7 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mpromptSource := args[0]
-			
+
 			// Check if this looks like a URL or local file
 			if strings.HasPrefix(mpromptSource, "https://") || strings.HasSuffix(mpromptSource, ".mprompt") || strings.Contains(mpromptSource, "/") {
 				// Install from URL or local file
@@ -1511,7 +1508,7 @@ func Run(args []string, fs afero.Fs, stderr io.Writer) error {
 		Use:   "version",
 		Short: "Show version information",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ShowVersion(fs)
+			return ShowVersion(fs, version)
 		},
 	}
 
@@ -1546,7 +1543,7 @@ func CreateMPrompt(fs afero.Fs, filename string) error {
 
 	// Collect frontmatter through wizard
 	frontmatter := map[string]interface{}{}
-	
+
 	// Name
 	fmt.Print("Enter prompt name: ")
 	name, err := readUserInput()
