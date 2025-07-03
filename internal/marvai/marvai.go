@@ -1343,15 +1343,12 @@ func ListRemotePrompts(fs afero.Fs) error {
 	return nil
 }
 
+// Version is set at build time via linker flags
+var Version = "dev"
+
 // ShowVersion displays the version information
 func ShowVersion(fs afero.Fs) error {
-	versionBytes, err := afero.ReadFile(fs, "version.txt")
-	if err != nil {
-		return fmt.Errorf("failed to read version file: %w", err)
-	}
-	
-	version := strings.TrimSpace(string(versionBytes))
-	fmt.Printf("marvai version %s\n", version)
+	fmt.Printf("marvai version %s\n", Version)
 	return nil
 }
 

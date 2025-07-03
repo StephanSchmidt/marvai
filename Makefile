@@ -6,7 +6,9 @@ all: build
 # Build the application
 build:
 	mkdir -p bin
-	go build -o bin/marvai ./cmd/marvai
+	@if [ ! -f version.txt ]; then echo "version.txt not found"; exit 1; fi
+	$(eval VERSION := $(shell cat version.txt))
+	go build -ldflags "-X github.com/marvai-dev/marvai/internal/marvai.Version=$(VERSION)" -o bin/marvai ./cmd/marvai
 
 # Run tests
 test:
