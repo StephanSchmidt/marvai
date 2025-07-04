@@ -1,4 +1,6 @@
 marvai
+coverage.out
+coverage/
 bin/
 coverage/
 dist/

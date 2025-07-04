@@ -4,22 +4,30 @@
 
 <img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
-A CLI packaging tool for managing and executing AI prompts in your projects.
-Think *NPM for prompts*. You can download prompts for Claude Code
-either from the MarvAI distribution or from GitHub repositories and then use 
-in your projects.
+A powerful CLI tool that changes how you work with AI prompts in your development workflow.
+Think *NPM for prompts* - discover, install, and execute battle-tested AI prompts from the MarvAI 
+distribution. Transform your development process with ready-to-use prompts 
+that automate code reviews, security scans, refactoring, and more.
+
+**Why MarvAI?**
+- 🚀 **Instant productivity**: Skip writing prompts from scratch - use proven and optimized templates
+- 📦 **Ecosystem-driven**: Tap into a growing library of community-contributed prompts
+- 🔧 **Zero configuration**: Install and run prompts with a single command
+- 🎯 **Purpose-built**: Designed specifically for developers who want AI automation without the hassle - **AI that works for you**
 
 Examples:
 * Security Scanning
 * Bug finding
 * Dependency upgrades
 * Programming language upgrades 
+* Architecture checks and recommendations
+* Scaling checks
 
 automated with Claude Code prompts.
 
 ## Features 
 
-- **Find prompts for your problems**: Find a prompt in the MarvAI repository
+- **Find prompts for your problems**: Find a prompt in the Marvai repository
 - **Manage your prompt library**: Install, update, and organize prompts locally
 - **Execute prompts seamlessly**: Run AI prompts with Claude Code integration
 
@@ -60,9 +68,15 @@ Install a `.mprompt` file by running its wizard and generating configuration fil
 ```
 
 This will:
-1. Read the `.mprompt` file from local path or Github URL
+1. Read the `.mprompt` file from local path or marvai registry
 2. Execute the wizard, prompting for variable values
 3. Generate `.marvai/<name>.mprompt` and `.marvai/<name>.var` files
+
+Install from a different repository:
+
+```bash
+> marvai install @otherrepo/otherprompt
+```
 
 ### `marvai prompt <name>`
 

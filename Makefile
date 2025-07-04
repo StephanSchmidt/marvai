@@ -12,7 +12,10 @@ build:
 
 # Run tests
 test:
-	go test -v ./...
+	mkdir -p coverage
+	go test -v -coverprofile=coverage/coverage.out ./...
+	@echo "\n=== COVERAGE SUMMARY ==="
+	@go tool cover -func=coverage/coverage.out | tail -1
 
 # Clean build artifacts
 clean:
