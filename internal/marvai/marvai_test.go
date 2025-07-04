@@ -29,14 +29,14 @@ type MockableCommandRunner interface {
 
 // Mock CommandRunner for testing
 type MockCommandRunner struct {
-	lookPathResult string
-	lookPathError  error
-	commands       []*MockCommand
-	simulateHang   bool
-	simulateError  bool
-	stdinPipeError bool
+	lookPathResult    string
+	lookPathError     error
+	commands          []*MockCommand
+	simulateHang      bool
+	simulateError     bool
+	stdinPipeError    bool
 	commandStartError bool
-	commandWaitError bool
+	commandWaitError  bool
 }
 
 type MockCommand struct {
@@ -102,8 +102,8 @@ func (m *mockWriteCloser) Close() error {
 func (m *MockCommandRunner) Command(name string, arg ...string) MockableCommand {
 	// Create a mock command with configurable behavior
 	mockCmd := &MockCommand{
-		name: name,
-		args: arg,
+		name:         name,
+		args:         arg,
 		simulateHang: m.simulateHang,
 	}
 
@@ -111,11 +111,11 @@ func (m *MockCommandRunner) Command(name string, arg ...string) MockableCommand 
 	if m.stdinPipeError {
 		mockCmd.stdinPipeErr = fmt.Errorf("mock stdin pipe creation failed")
 	}
-	
+
 	if m.commandStartError || m.simulateError {
 		mockCmd.startError = fmt.Errorf("mock command start failed")
 	}
-	
+
 	if m.commandWaitError {
 		mockCmd.waitError = fmt.Errorf("mock command wait failed")
 	}
@@ -155,7 +155,7 @@ func RunWithPromptAndMockableRunner(fs afero.Fs, promptName string, cliTool stri
 		// Fallback to using cliTool as-is if not found in PATH
 		cliPath = cliTool
 	}
-	
+
 	cmd := runner.Command(cliPath)
 	cmd.SetStdout(stdout)
 	cmd.SetStderr(stderr)
@@ -336,7 +336,7 @@ func TestRun(t *testing.T) {
 			var stderr bytes.Buffer
 
 			// Test run function
-			err := Run(tt.args, fs, &stderr)
+			err := Run(tt.args, fs, &stderr, "0.0.1")
 
 			if tt.expectedError == "" {
 				if err != nil {
@@ -749,7 +749,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			},
 			setupRunner: func() *MockCommandRunner {
 				return &MockCommandRunner{
-					lookPathResult: "/usr/bin/claude",
+					lookPathResult:    "/usr/bin/claude",
 					commandStartError: true, // Properly simulate start failure
 				}
 			},
@@ -764,7 +764,7 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 			},
 			setupRunner: func() *MockCommandRunner {
 				runner := &MockCommandRunner{
-					lookPathResult: "/usr/bin/claude",
+					lookPathResult:   "/usr/bin/claude",
 					commandWaitError: true, // Properly simulate wait failure
 				}
 				return runner
@@ -1144,7 +1144,7 @@ Test template`
 
 	// Test the list-local command via Run function
 	var stderr bytes.Buffer
-	err = Run([]string{"program", "list-local"}, fs, &stderr)
+	err = Run([]string{"program", "list-local"}, fs, &stderr, "0.0.1")
 
 	// Restore stdout
 	w.Close()
@@ -1294,7 +1294,7 @@ func TestInstalledCommand(t *testing.T) {
 
 	// Test the installed command via Run function
 	var stderr bytes.Buffer
-	err = Run([]string{"program", "installed"}, fs, &stderr)
+	err = Run([]string{"program", "installed"}, fs, &stderr, "0.0.1")
 
 	// Restore stdout
 	w.Close()
@@ -1362,11 +1362,11 @@ func TestVerifySHA256(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := verifySHA256(tt.content, tt.expectedHash)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Expected no error but got: %v", err)
 			}

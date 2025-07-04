@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/StephanSchmidt/marvai/internal/marvai"
+	"github.com/marvai-dev/marvai/internal/marvai"
 )
 
 // TestMainIntegration tests the main function integration without actually running Claude
@@ -37,7 +37,7 @@ func TestMainIntegration(t *testing.T) {
 			var stderr bytes.Buffer
 
 			// Test the main Run function from internal package
-			err := marvai.Run(tt.args, fs, &stderr)
+			err := marvai.Run(tt.args, fs, &stderr, "0.0.1")
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")

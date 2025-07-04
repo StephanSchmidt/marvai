@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.5
 
 require (
-	github.com/StephanSchmidt/marvai v0.1.7
+	github.com/marvai-dev/marvai v0.1.13
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
