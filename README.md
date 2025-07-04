@@ -3,8 +3,6 @@
 
 # MarvAI
 
-<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
-
 **----- NOT SAFE FOR PRODUCTION -----**
 
 A powerful CLI tool that changes how you work with AI prompts in your development workflow.
@@ -33,6 +31,8 @@ automated with Claude Code prompts.
 - **Find prompts for your problems**: Find a prompt in the Marvai repository
 - **Manage your prompt library**: Install, update, and organize prompts locally
 - **Execute prompts seamlessly**: Run AI prompts with Claude Code integration
+
+<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
 
 ## Install
 
