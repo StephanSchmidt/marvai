@@ -1,8 +1,11 @@
-**----- NOT SAFE FOR PRODUCTION -----**
+
+<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-logo-square.png" alt="Marvai" width="70%">
 
 # MarvAI
 
 <img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-demo.gif" alt="Demo Marvai" width="70%">
+
+**----- NOT SAFE FOR PRODUCTION -----**
 
 A powerful CLI tool that changes how you work with AI prompts in your development workflow.
 Think *NPM for prompts* - discover, install, and execute battle-tested AI prompts from the MarvAI 
