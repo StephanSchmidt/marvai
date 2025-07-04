@@ -1,5 +1,5 @@
 
-<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-logo-square.png" alt="Marvai" width="70%">
+<img src="https://raw.githubusercontent.com/marvai-dev/marvai/main/marvai-logo-square.png" alt="Marvai" width="50%">
 
 # MarvAI
 
