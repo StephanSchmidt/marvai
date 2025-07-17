@@ -124,14 +124,14 @@ template`,
 			name: "yaml_bomb",
 			content: strings.Repeat("- ", 100000) + `
   id: test
-  question: "Test?"
+  description: "Test?"
 --
 template`,
 			dangerous: true,
 		},
 		{
 			name:      "null_byte_injection",
-			content:   "- id: test\x00\n  question: \"Test?\"\n--\ntemplate",
+			content:   "- id: test\x00\n  description: \"Test?\"\n--\ntemplate",
 			dangerous: true,
 		},
 	}
