@@ -228,8 +228,3 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 	return name, description, author, version
 }
 
-// ShowVersion displays the version information
-func ShowVersion(fs afero.Fs, version string) error {
-	fmt.Printf("marvai version %s\n", version)
-	return nil
-}
