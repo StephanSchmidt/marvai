@@ -452,9 +452,9 @@ func ListInstalledPrompts(fs afero.Fs) error {
 	}
 
 	if len(promptFiles) == 1 {
-		fmt.Printf("Found %d installed prompt:\n", len(promptFiles))
+		fmt.Printf("Found %d installed prompt(s):\n", len(promptFiles))
 	} else {
-		fmt.Printf("Found %d installed prompts:\n", len(promptFiles))
+		fmt.Printf("Found %d installed prompt(s):\n", len(promptFiles))
 	}
 	for _, name := range promptFiles {
 		// Check if .var file exists to show configuration status
@@ -490,7 +490,7 @@ func ListInstalledPrompts(fs afero.Fs) error {
 			line += " (configured)"
 		}
 
-		fmt.Println(line)
+		fmt.Printf("  %s\n", line)
 	}
 
 	return nil
