@@ -113,8 +113,8 @@ List available prompts from the remote registry.
 ```bash
 $ marvai list
 ✨ Found 3 prompts available:
-  Hello World v1.0 - A simple hello world example (by Stephan Schmidt) [hello.mprompt]
-  Security Audit v2.1 - Security analysis prompt (by Stephan Schmidt) [security.mprompt]
+Hello World v1.0 - A simple hello world example (by Stephan Schmidt) [hello.mprompt]
+Security Audit v2.1 - Security analysis prompt (by Stephan Schmidt) [security.mprompt]
 ```
 
 List prompts from a specific repository:
@@ -130,7 +130,7 @@ List installed prompts in the `.marvai` directory.
 ```bash
 $ marvai installed
 Found 1 installed prompt:
-  Example v0.4 - An example (by Stephan Schmidt) (configured)
+Example v0.4 - An example (by Stephan Schmidt) (configured)
 ```
 
 ### `marvai version`
@@ -139,69 +139,13 @@ Show version information.
 
 ```bash
 $ marvai version
-marvai version 1.0.0
-```
-
+marvai version 0.1```
 
 # Features For Prompt Developers
 
 - **Interactive Wizards**: Define variables with questions to prompt users for input
 - **Templates**: Use powerful templating with `{{variablename}}` placeholders
 - **AI CLI Integration**: Execute generated prompts directly with Claude Code, Gemini, or Codex
-
-## .mprompt File Format
-
-A `.mprompt` file contains three sections separated by `--`:
-
-1. **Frontmatter**: YAML metadata (name, version, description, author)
-2. **Wizard Section**: YAML configuration for interactive variables
-3. **Template Section**: The prompt template syntax with variable placeholders
-
-### Example
-
-```yaml
-name: Example
-description: An example prompt
-author: Your Name
-version: 1.0
---
-- id: hi
-  description: "Hi prompt"
-  type: string
-  required: true
---
-Say {{hi}}
-```
-
-## Complete Example
-
-1. Install a prompt from the registry:
-   ```bash
-   $ marvai install example
-   What should I say? hello
-   Installed example from remote registry
-   ```
-
-2. Execute the prompt:
-   ```bash
-   $ marvai prompt example
-   # This will run the templated prompt through Claude Code
-   ```
-
-3. Or use with different AI tools:
-   ```bash
-   $ marvai --cli gemini prompt example
-   $ marvai --cli codex prompt example
-   ```
-
-The generated files will be:
-- `.marvai/example.mprompt` (the template)
-- `.marvai/example.var` (variable values)
-
-When executed, the templated content will be:
-```
-Say hello
-```
 
 ## Templating
 
@@ -211,35 +155,6 @@ The template section supports:
 - **Conditionals**: `{{#if condition}}...{{/if}}`
 - **Loops**: `{{#each items}}...{{/each}}`
 - **Helpers**: Built-in and custom helpers
-
-### Advanced Example
-
-```yaml
-name: Advanced Example
-description: An advanced example with loops and conditionals
-author: Your Name
-version: 1.0
---
-- id: name
-  questio n: "What's your name?"
-  type: string
-  required: true
-- id: items
-  quest ion: "Enter comma-separated items:"
-  type: string
-  required: false
---
-Hello {{name}}!
-
-{{#if items}}
-Here are your items:
-{{#each (split items ",")}}
-- {{this}}
-{{/each}}
-{{else}}
-No items provided.
-{{/if}}
-```
 
 ## Variable Types
 
