@@ -157,12 +157,29 @@ func checkLocalPromptInstallation(fs afero.Fs, promptName, remoteVersion string)
 	}
 
 	// Get local version info
-	_, _, _, localVersion := getInstalledMPromptInfo(fs, mpromptFile)
+	localVersion := getInstalledPromptVersion(fs, mpromptFile)
 
 	// Compare versions using semantic version comparison
 	isUpToDate := isVersionUpToDate(localVersion, remoteVersion)
 
 	return true, isUpToDate, localVersion
+}
+
+// getInstalledPromptVersion extracts only the version from an installed .mprompt file
+func getInstalledPromptVersion(fs afero.Fs, filename string) string {
+	// Read file content directly since ParseMPrompt has security checks for path separators
+	content, err := afero.ReadFile(fs, filename)
+	if err != nil {
+		return ""
+	}
+
+	data, err := ParseMPromptContent(content, filename)
+	if err != nil {
+		return ""
+	}
+
+	// Return version from frontmatter if available
+	return data.Frontmatter.Version
 }
 
 // getInstalledMPromptInfo attempts to extract information from an installed .mprompt file including version
