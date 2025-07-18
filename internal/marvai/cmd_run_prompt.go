@@ -20,7 +20,9 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	content, err := LoadPrompt(fs, promptName)
 	if err != nil {
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
@@ -36,11 +38,15 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 		err := cmd.Run()
 		if err != nil {
 			// Log failed execution
-			LogPromptExecution(fs, promptName, cliTool, false)
+			if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+				fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+			}
 			return err
 		}
 		// Log successful execution
-		LogPromptExecution(fs, promptName, cliTool, true)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, true); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return nil
 	} else {
 		// For claude and gemini, use stdin
@@ -54,31 +60,40 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("error creating stdin pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		stdin.Close() // Clean up stdin pipe if command fails to start
+		if closeErr := stdin.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close stdin: %v\n", closeErr)
+		} // Clean up stdin pipe if command fails to start
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("error starting %s: %w", cliTool, err)
 	}
 
 	// Write content to stdin in a goroutine with proper synchronization
 	done := make(chan error, 1)
 	go func() {
-		defer stdin.Close()
+		defer func() {
+			if err := stdin.Close(); err != nil {
+				fmt.Printf("Warning: failed to close stdin: %v\n", err)
+			}
+		}()
 		_, writeErr := stdin.Write(content)
 		if writeErr == nil {
 			// Send /exit command to terminate CLI tool after processing the prompt
 			// Note: This works for Claude, other tools may need different exit commands
 			if cliTool == "claude" {
 				_, writeErr = stdin.Write([]byte("\n/exit\n"))
-			} else {
-				// For other tools, just close stdin to signal end of input
-				// Individual tools may require different exit strategies
 			}
+			// For other tools, just close stdin to signal end of input
+			// Individual tools may require different exit strategies
 		}
 		done <- writeErr
 	}()
@@ -91,7 +106,9 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	case <-time.After(10 * time.Second):
 		// Timeout waiting for write to complete
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("timeout waiting for stdin write to complete")
 	}
 
@@ -101,17 +118,23 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	// Return appropriate error
 	if writeErr != nil && waitErr == nil {
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("error writing to %s stdin: %w", cliTool, writeErr)
 	}
 
 	if waitErr != nil {
 		// Log failed execution
-		LogPromptExecution(fs, promptName, cliTool, false)
+		if logErr := LogPromptExecution(fs, promptName, cliTool, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+		}
 		return fmt.Errorf("error running %s: %w", cliTool, waitErr)
 	}
 
 	// Log successful execution
-	LogPromptExecution(fs, promptName, cliTool, true)
+	if logErr := LogPromptExecution(fs, promptName, cliTool, true); logErr != nil {
+		fmt.Printf("Warning: failed to log prompt execution: %v\n", logErr)
+	}
 	return nil
 }

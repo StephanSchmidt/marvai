@@ -90,7 +90,11 @@ func fetchRemotePrompts(repoStr string) ([]PromptEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("repo %s can't be read from %s", repo, promptsURL)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {

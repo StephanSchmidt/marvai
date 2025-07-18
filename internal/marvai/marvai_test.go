@@ -166,24 +166,29 @@ func RunWithPromptAndMockableRunner(fs afero.Fs, promptName string, cliTool stri
 	}
 
 	if err := cmd.Start(); err != nil {
-		stdin.Close() // Clean up stdin pipe if command fails to start
+		if closeErr := stdin.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close stdin: %v\n", closeErr)
+		} // Clean up stdin pipe if command fails to start
 		return fmt.Errorf("error starting %s: %w", cliTool, err)
 	}
 
 	// Write content to stdin in a goroutine with proper synchronization
 	done := make(chan error, 1)
 	go func() {
-		defer stdin.Close()
+		defer func() {
+			if err := stdin.Close(); err != nil {
+				fmt.Printf("Warning: failed to close stdin: %v\n", err)
+			}
+		}()
 		_, writeErr := stdin.Write(content)
 		if writeErr == nil {
 			// Send /exit command to terminate CLI tool after processing the prompt
 			// Note: This works for Claude, other tools may need different exit commands
 			if cliTool == "claude" {
 				_, writeErr = stdin.Write([]byte("\n/exit\n"))
-			} else {
-				// For other tools, just close stdin to signal end of input
-				// Individual tools may require different exit strategies
 			}
+			// For other tools, just close stdin to signal end of input
+			// Individual tools may require different exit strategies
 		}
 		done <- writeErr
 	}()
@@ -288,8 +293,12 @@ func TestFindClaudeBinaryWithRunner(t *testing.T) {
 
 			// Create existing files
 			for _, file := range tt.existingFiles {
-				fs.MkdirAll(file[:strings.LastIndex(file, "/")], 0755)
-				afero.WriteFile(fs, file, []byte("mock claude binary"), 0755)
+				if err := fs.MkdirAll(file[:strings.LastIndex(file, "/")], 0755); err != nil {
+				t.Errorf("Failed to create directory: %v", err)
+			}
+				if err := afero.WriteFile(fs, file, []byte("mock claude binary"), 0755); err != nil {
+				t.Errorf("Failed to write file: %v", err)
+			}
 			}
 
 			// Test function
@@ -510,10 +519,14 @@ func TestPromptFilePathConstruction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem with expected file
 			fs := afero.NewMemMapFs()
-			fs.MkdirAll(".marvai", 0755)
+			if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 			// Convert .prompt to .mprompt for the new system
 			mpromptPath := strings.Replace(tt.expected, ".prompt", ".mprompt", 1)
-			afero.WriteFile(fs, mpromptPath, []byte("name: Test\n--\n--\ntest content"), 0644)
+			if err := afero.WriteFile(fs, mpromptPath, []byte("name: Test\n--\n--\ntest content"), 0644); err != nil {
+				t.Errorf("Failed to write mprompt file: %v", err)
+			}
 
 			// Test that LoadPrompt correctly constructs the path
 			content, err := LoadPrompt(fs, tt.promptName)
@@ -554,7 +567,9 @@ func TestLoadPromptWithSpecialCharacters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create in-memory filesystem
 			fs := afero.NewMemMapFs()
-			fs.MkdirAll(".marvai", 0755)
+			if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 
 			// Write test file with special content
 			mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
@@ -634,17 +649,25 @@ func TestLoadPromptDirectoryTraversal(t *testing.T) {
 			fs := afero.NewMemMapFs()
 
 			// Create .marvai directory
-			fs.MkdirAll(".marvai", 0755)
+			if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 
 			// For valid test cases, create the expected files
 			if tt.shouldSucceed {
 				mpromptFile := ".marvai/" + tt.promptName + ".mprompt"
-				afero.WriteFile(fs, mpromptFile, []byte("name: Test\n--\n--\ntest content"), 0644)
+				if err := afero.WriteFile(fs, mpromptFile, []byte("name: Test\n--\n--\ntest content"), 0644); err != nil {
+				t.Errorf("Failed to write mprompt file: %v", err)
+			}
 			}
 
 			// Also create a sensitive file outside the .marvai directory to test traversal
-			fs.MkdirAll("/etc", 0755)
-			afero.WriteFile(fs, "/etc/passwd", []byte("sensitive data"), 0644)
+			if err := fs.MkdirAll("/etc", 0755); err != nil {
+				t.Errorf("Failed to create /etc directory: %v", err)
+			}
+			if err := afero.WriteFile(fs, "/etc/passwd", []byte("sensitive data"), 0644); err != nil {
+				t.Errorf("Failed to write /etc/passwd file: %v", err)
+			}
 
 			// Test LoadPrompt function
 			content, err := LoadPrompt(fs, tt.promptName)
@@ -705,7 +728,9 @@ func TestLoadPromptInputValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
-			fs.MkdirAll(".marvai", 0755)
+			if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 
 			_, err := LoadPrompt(fs, tt.promptName)
 
@@ -728,7 +753,9 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 		{
 			name: "stdin pipe creation fails",
 			setupFs: func(fs afero.Fs) error {
-				fs.MkdirAll(".marvai", 0755)
+				if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
@@ -744,7 +771,9 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 		{
 			name: "command start fails",
 			setupFs: func(fs afero.Fs) error {
-				fs.MkdirAll(".marvai", 0755)
+				if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
@@ -759,7 +788,9 @@ func TestRunWithPromptResourceLeaks(t *testing.T) {
 		{
 			name: "command wait fails",
 			setupFs: func(fs afero.Fs) error {
-				fs.MkdirAll(".marvai", 0755)
+				if err := fs.MkdirAll(".marvai", 0755); err != nil {
+				t.Errorf("Failed to create .marvai directory: %v", err)
+			}
 				return afero.WriteFile(fs, ".marvai/test.mprompt", []byte("name: Test\n--\n--\ntest content"), 0644)
 			},
 			setupRunner: func() *MockCommandRunner {
@@ -848,7 +879,9 @@ description: A test template
   required: false
 --
 Hello {{test}}!`
-				afero.WriteFile(fs, tt.mpromptName+".mprompt", []byte(mpromptContent), 0644)
+				if err := afero.WriteFile(fs, tt.mpromptName+".mprompt", []byte(mpromptContent), 0644); err != nil {
+				t.Errorf("Failed to write mprompt file: %v", err)
+			}
 			}
 
 			// Test InstallMPrompt - we need to handle the wizard input
@@ -1084,7 +1117,9 @@ func TestListInstalledPrompts(t *testing.T) {
 			err = ListInstalledPrompts(fs)
 
 			// Restore stdout
-			w.Close()
+			if err := w.Close(); err != nil {
+		t.Errorf("Failed to close writer: %v", err)
+	}
 			os.Stdout = oldStdout
 
 			// Read captured output
@@ -1135,7 +1170,9 @@ func TestInstalledCommand(t *testing.T) {
 	err = Run([]string{"program", "installed"}, fs, &stderr, "0.0.1")
 
 	// Restore stdout
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Errorf("Failed to close writer: %v", err)
+	}
 	os.Stdout = oldStdout
 
 	// Read captured output

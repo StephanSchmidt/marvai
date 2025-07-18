@@ -120,7 +120,11 @@ func (h *MarvaiHandler) LoadContent(source string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error downloading from %s: %w", source, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {

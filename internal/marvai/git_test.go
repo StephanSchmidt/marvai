@@ -87,7 +87,9 @@ func TestIsGitRepository(t *testing.T) {
 			name: "valid git repository with commits",
 			setupFS: func(fs afero.Fs) {
 				// Create .git directory
-				fs.Mkdir(".git", 0755)
+				if err := fs.Mkdir(".git", 0755); err != nil {
+					t.Errorf("Failed to create .git directory: %v", err)
+				}
 			},
 			setupRunner: func(runner *MockGitCommandRunner) {
 				// Git is available and all commands succeed
@@ -105,7 +107,9 @@ func TestIsGitRepository(t *testing.T) {
 			name: "valid git repository without commits (fresh repo)",
 			setupFS: func(fs afero.Fs) {
 				// Create .git directory
-				fs.Mkdir(".git", 0755)
+				if err := fs.Mkdir(".git", 0755); err != nil {
+					t.Errorf("Failed to create .git directory: %v", err)
+				}
 			},
 			setupRunner: func(runner *MockGitCommandRunner) {
 				// Git is available, rev-parse --git-dir succeeds, but HEAD check fails
@@ -139,7 +143,9 @@ func TestIsGitRepository(t *testing.T) {
 			name: ".git file (worktree)",
 			setupFS: func(fs afero.Fs) {
 				// Create .git as a file (like in worktrees)
-				afero.WriteFile(fs, ".git", []byte("gitdir: /path/to/main/.git/worktrees/branch\n"), 0644)
+				if err := afero.WriteFile(fs, ".git", []byte("gitdir: /path/to/main/.git/worktrees/branch\n"), 0644); err != nil {
+					t.Errorf("Failed to write .git file: %v", err)
+				}
 			},
 			setupRunner: func(runner *MockGitCommandRunner) {
 				// Git is available and commands succeed
@@ -157,7 +163,9 @@ func TestIsGitRepository(t *testing.T) {
 			name: "git command not available",
 			setupFS: func(fs afero.Fs) {
 				// Create .git directory
-				fs.Mkdir(".git", 0755)
+				if err := fs.Mkdir(".git", 0755); err != nil {
+					t.Errorf("Failed to create .git directory: %v", err)
+				}
 			},
 			setupRunner: func(runner *MockGitCommandRunner) {
 				// Git is not available
@@ -171,7 +179,9 @@ func TestIsGitRepository(t *testing.T) {
 			name: ".git exists but not a valid git repo",
 			setupFS: func(fs afero.Fs) {
 				// Create .git directory
-				fs.Mkdir(".git", 0755)
+				if err := fs.Mkdir(".git", 0755); err != nil {
+					t.Errorf("Failed to create .git directory: %v", err)
+				}
 			},
 			setupRunner: func(runner *MockGitCommandRunner) {
 				// Git is available but rev-parse --git-dir fails
@@ -280,7 +290,9 @@ func TestIsGitRepositoryWithSequentialCommands(t *testing.T) {
 
 	// Create filesystem with .git
 	fs := afero.NewMemMapFs()
-	fs.Mkdir(".git", 0755)
+	if err := fs.Mkdir(".git", 0755); err != nil {
+		t.Errorf("Failed to create .git directory: %v", err)
+	}
 
 	// Test the function
 	result := isGitRepository(fs, runner)

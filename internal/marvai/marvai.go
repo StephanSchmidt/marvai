@@ -360,8 +360,8 @@ func isValidVariableNameLocal(name string) bool {
 
 	// SECURITY: Only allow alphanumeric, underscore, and hyphen
 	for _, r := range name {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '_' || r == '-') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') &&
+			(r < '0' || r > '9') && r != '_' && r != '-' {
 			return false
 		}
 	}
@@ -484,7 +484,6 @@ func findPromptByName(prompts []PromptEntry, name string) (PromptEntry, error) {
 func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) {
 	lines := strings.Split(string(content), "\n")
 	var result []string
-	section := 0 // 0=frontmatter, 1=wizard, 2=template
 	frontmatterLines := []string{}
 
 	i := 0
@@ -492,7 +491,6 @@ func injectSourceIntoMPrompt(content []byte, sourceType string) ([]byte, error) 
 	for i < len(lines) {
 		line := lines[i]
 		if strings.TrimSpace(line) == "--" {
-			section++
 			break
 		}
 		frontmatterLines = append(frontmatterLines, line)
@@ -580,7 +578,11 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	if err != nil {
 		return fmt.Errorf("error downloading .mprompt file from %s: %w", promptURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
@@ -657,7 +659,9 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	// Ask for user confirmation before installing
 	fmt.Printf("Do you want to install '%s'? (yes/no) ", finalName)
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		fmt.Printf("Warning: failed to read input: %v\n", err)
+	}
 
 	if strings.ToLower(strings.TrimSpace(response)) != "yes" {
 		fmt.Printf("Installation cancelled.\n")
@@ -678,7 +682,9 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	// Write .mprompt file with the updated content
 	if err := afero.WriteFile(fs, mpromptFile, updatedContent, 0644); err != nil {
 		// Log failed installation
-		LogPromptInstall(fs, finalName, actualRepo, false)
+		if logErr := LogPromptInstall(fs, finalName, actualRepo, false); logErr != nil {
+			fmt.Printf("Warning: failed to log prompt installation: %v\n", logErr)
+		}
 		return fmt.Errorf("error writing .mprompt file: %w", err)
 	}
 
@@ -687,7 +693,9 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 		values, err := ExecuteWizard(data.Variables)
 		if err != nil {
 			// Log failed installation
-			LogPromptInstall(fs, finalName, actualRepo, false)
+			if logErr := LogPromptInstall(fs, finalName, actualRepo, false); logErr != nil {
+				fmt.Printf("Warning: failed to log prompt installation: %v\n", logErr)
+			}
 			return err
 		}
 
@@ -695,13 +703,17 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 		varData, err := yaml.Marshal(values)
 		if err != nil {
 			// Log failed installation
-			LogPromptInstall(fs, finalName, actualRepo, false)
+			if logErr := LogPromptInstall(fs, finalName, actualRepo, false); logErr != nil {
+				fmt.Printf("Warning: failed to log prompt installation: %v\n", logErr)
+			}
 			return fmt.Errorf("error marshaling wizard answers: %w", err)
 		}
 
 		if err := afero.WriteFile(fs, varFile, varData, 0644); err != nil {
 			// Log failed installation
-			LogPromptInstall(fs, finalName, actualRepo, false)
+			if logErr := LogPromptInstall(fs, finalName, actualRepo, false); logErr != nil {
+				fmt.Printf("Warning: failed to log prompt installation: %v\n", logErr)
+			}
 			return fmt.Errorf("error writing .var file: %w", err)
 		}
 		fmt.Printf("Installed %s with variables saved to %s\n", mpromptFile, varFile)
@@ -712,7 +724,9 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	fmt.Printf("\nWARNING: Prompts can be dangerous - be careful when executing them in a coding agent.\nBest review them before executing them.\n")
 
 	// Log successful installation
-	LogPromptInstall(fs, finalName, actualRepo, true)
+	if logErr := LogPromptInstall(fs, finalName, actualRepo, true); logErr != nil {
+		fmt.Printf("Warning: failed to log prompt installation: %v\n", logErr)
+	}
 
 	return nil
 }
@@ -755,19 +769,45 @@ func showWelcomeScreen(w io.Writer) {
 	line7 := "     marvai --cli gemini <cmd>  Use Gemini instead"
 	line8 := "   cwd: " + cwd
 
-	fmt.Fprintf(w, "%s╭────────────────────────────────────────────────────────╮%s\n", cyan, reset)
-	fmt.Fprintf(w, "%s│%s %s✻ Welcome to Marvai!%s%s%s│%s\n", cyan, reset, bold+green, reset, strings.Repeat(" ", boxWidth-len(line1)+2), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
-	fmt.Fprintf(w, "%s│%s   %sPrompt templates for Claude Code & Gemini%s%s%s│%s\n", cyan, reset, yellow, reset, strings.Repeat(" ", boxWidth-len(line2)), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line3), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line4), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line5), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line6), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line7), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset)
-	fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line8), cyan, reset)
-	fmt.Fprintf(w, "%s╰────────────────────────────────────────────────────────╯%s\n", cyan, reset)
+	if _, err := fmt.Fprintf(w, "%s╭────────────────────────────────────────────────────────╮%s\n", cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s %s✻ Welcome to Marvai!%s%s%s│%s\n", cyan, reset, bold+green, reset, strings.Repeat(" ", boxWidth-len(line1)+2), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s   %sPrompt templates for Claude Code & Gemini%s%s%s│%s\n", cyan, reset, yellow, reset, strings.Repeat(" ", boxWidth-len(line2)), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line3), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line4), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line5), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line6), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line7), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(""), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s│%s%s%s│%s\n", cyan, reset, padLine(line8), cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
+	if _, err := fmt.Fprintf(w, "%s╰────────────────────────────────────────────────────────╯%s\n", cyan, reset); err != nil {
+		fmt.Printf("Warning: failed to write to output: %v\n", err)
+	}
 }
 
 // Run executes the main application logic using Cobra for command-line parsing
@@ -791,7 +831,9 @@ General Public Licence for details.`,
 			// Backward compatibility: if no subcommand specified, treat first arg as prompt name
 			promptName := args[0]
 			if err := RunWithPrompt(fs, promptName, cliTool); err != nil {
-				fmt.Fprintf(stderr, "Error: %v\n", err)
+				if _, printErr := fmt.Fprintf(stderr, "Error: %v\n", err); printErr != nil {
+					fmt.Printf("Warning: failed to write error to stderr: %v\n", printErr)
+				}
 				os.Exit(1)
 			}
 		},

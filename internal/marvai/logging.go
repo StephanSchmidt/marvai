@@ -43,7 +43,11 @@ func LogToMarvaiLog(fs afero.Fs, action LogAction, promptName string, details st
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("Warning: failed to close log file: %v\n", err)
+		}
+	}()
 
 	// Create log entry
 	entry := LogEntry{

@@ -267,11 +267,12 @@ func TestBinaryHijacking(t *testing.T) {
 	// 1. Reject the malicious binary and return empty string, or
 	// 2. Find a legitimate binary instead, or
 	// 3. Return an error
-	if claudePath == maliciousBinary {
+	switch claudePath {
+	case maliciousBinary:
 		t.Errorf("SECURITY VULNERABILITY: Binary hijacking possible, accepted malicious binary: %q", claudePath)
-	} else if claudePath == "" {
+	case "":
 		t.Logf("✅ SECURITY FIX: Binary hijacking prevented, no binary accepted")
-	} else {
+	default:
 		t.Logf("✅ SECURITY FIX: Binary hijacking prevented, found alternative: %q", claudePath)
 	}
 

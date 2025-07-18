@@ -64,7 +64,9 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 	// Ask user for confirmation
 	fmt.Printf("Do you want to update '%s' to version %s? (yes/no) ", promptName, promptEntry.Version)
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		fmt.Printf("Warning: failed to read input: %v\n", err)
+	}
 
 	if strings.ToLower(strings.TrimSpace(response)) != "yes" {
 		fmt.Println("Update cancelled.")
@@ -105,7 +107,11 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 	if err != nil {
 		return fmt.Errorf("error downloading new version: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed with status code: %d", resp.StatusCode)
@@ -142,8 +148,12 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 
 	if err := afero.WriteFile(fs, mpromptFile, updatedContent, 0644); err != nil {
 		// Restore backup on failure
-		copyFileAfero(fs, backupMpromptFile, mpromptFile)
-		fs.Remove(backupMpromptFile)
+		if copyErr := copyFileAfero(fs, backupMpromptFile, mpromptFile); copyErr != nil {
+			fmt.Printf("Warning: failed to restore backup: %v\n", copyErr)
+		}
+		if removeErr := fs.Remove(backupMpromptFile); removeErr != nil {
+			fmt.Printf("Warning: failed to remove backup file: %v\n", removeErr)
+		}
 		return fmt.Errorf("error installing new version: %w", err)
 	}
 
@@ -159,7 +169,9 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 			// Ask if user wants to rollback
 			fmt.Print("Do you want to rollback to the previous version? (yes/no) ")
 			var rollbackResponse string
-			fmt.Scanln(&rollbackResponse)
+			if _, err := fmt.Scanln(&rollbackResponse); err != nil {
+				fmt.Printf("Warning: failed to read input: %v\n", err)
+			}
 
 			if strings.ToLower(strings.TrimSpace(rollbackResponse)) == "yes" {
 				// Restore backup
@@ -168,7 +180,9 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 				} else {
 					fmt.Printf("Successfully rolled back prompt '%s' to previous version.\n", promptName)
 				}
-				fs.Remove(backupMpromptFile)
+				if removeErr := fs.Remove(backupMpromptFile); removeErr != nil {
+					fmt.Printf("Warning: failed to remove backup file: %v\n", removeErr)
+				}
 				return fmt.Errorf("update rolled back due to wizard failure")
 			}
 
@@ -183,7 +197,9 @@ func UpdatePrompt(fs afero.Fs, promptName string) error {
 	}
 
 	// Clean up backup
-	fs.Remove(backupMpromptFile)
+	if err := fs.Remove(backupMpromptFile); err != nil {
+		fmt.Printf("Warning: failed to remove backup file: %v\n", err)
+	}
 
 	fmt.Printf("Successfully updated prompt '%s' to version %s\n", promptName, promptEntry.Version)
 	return nil
@@ -195,13 +211,21 @@ func copyFileAfero(fs afero.Fs, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		if err := srcFile.Close(); err != nil {
+			fmt.Printf("Warning: failed to close source file: %v\n", err)
+		}
+	}()
 
 	dstFile, err := fs.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() {
+		if err := dstFile.Close(); err != nil {
+			fmt.Printf("Warning: failed to close destination file: %v\n", err)
+		}
+	}()
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err

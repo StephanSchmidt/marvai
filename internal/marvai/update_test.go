@@ -101,7 +101,9 @@ func TestCopyFileAfero(t *testing.T) {
 		{
 			name: "copy existing file",
 			setupFS: func(fs afero.Fs) {
-				afero.WriteFile(fs, "source.txt", []byte("test content"), 0644)
+				if err := afero.WriteFile(fs, "source.txt", []byte("test content"), 0644); err != nil {
+					t.Errorf("Failed to write source file: %v", err)
+				}
 			},
 			srcFile: "source.txt",
 			dstFile: "destination.txt",
@@ -274,7 +276,9 @@ age: "25"`,
 			fs := afero.NewMemMapFs()
 			testFile := "test.var"
 
-			afero.WriteFile(fs, testFile, []byte(tt.fileContent), 0644)
+			if err := afero.WriteFile(fs, testFile, []byte(tt.fileContent), 0644); err != nil {
+				t.Errorf("Failed to write test file: %v", err)
+			}
 
 			vars, err := loadVarFile(fs, testFile)
 
