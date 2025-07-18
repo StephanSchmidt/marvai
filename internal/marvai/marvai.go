@@ -677,6 +677,8 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 
 	// Write .mprompt file with the updated content
 	if err := afero.WriteFile(fs, mpromptFile, updatedContent, 0644); err != nil {
+		// Log failed installation
+		LogPromptInstall(fs, finalName, actualRepo, false)
 		return fmt.Errorf("error writing .mprompt file: %w", err)
 	}
 
@@ -684,16 +686,22 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	if len(data.Variables) > 0 {
 		values, err := ExecuteWizard(data.Variables)
 		if err != nil {
+			// Log failed installation
+			LogPromptInstall(fs, finalName, actualRepo, false)
 			return err
 		}
 
 		// Save wizard answers as YAML
 		varData, err := yaml.Marshal(values)
 		if err != nil {
+			// Log failed installation
+			LogPromptInstall(fs, finalName, actualRepo, false)
 			return fmt.Errorf("error marshaling wizard answers: %w", err)
 		}
 
 		if err := afero.WriteFile(fs, varFile, varData, 0644); err != nil {
+			// Log failed installation
+			LogPromptInstall(fs, finalName, actualRepo, false)
 			return fmt.Errorf("error writing .var file: %w", err)
 		}
 		fmt.Printf("Installed %s with variables saved to %s\n", mpromptFile, varFile)
@@ -702,6 +710,9 @@ func InstallMPromptByNameFromRepo(fs afero.Fs, promptName string, repo string) e
 	}
 
 	fmt.Printf("\nWARNING: Prompts can be dangerous - be careful when executing them in a coding agent.\nBest review them before executing them.\n")
+
+	// Log successful installation
+	LogPromptInstall(fs, finalName, actualRepo, true)
 
 	return nil
 }

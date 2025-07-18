@@ -19,6 +19,8 @@ func RunWithPrompt(fs afero.Fs, promptName string, cliTool string) error {
 func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runner CommandRunner, stdout, stderr io.Writer) error {
 	content, err := LoadPrompt(fs, promptName)
 	if err != nil {
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
@@ -31,7 +33,15 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 		// For codex, just run the command directly since prompt is passed as argument
-		return cmd.Run()
+		err := cmd.Run()
+		if err != nil {
+			// Log failed execution
+			LogPromptExecution(fs, promptName, cliTool, false)
+			return err
+		}
+		// Log successful execution
+		LogPromptExecution(fs, promptName, cliTool, true)
+		return nil
 	} else {
 		// For claude and gemini, use stdin
 		cmd = runner.Command(cliPath)
@@ -43,11 +53,15 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 	// For claude and gemini, use stdin
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("error creating stdin pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
 		stdin.Close() // Clean up stdin pipe if command fails to start
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("error starting %s: %w", cliTool, err)
 	}
 
@@ -76,6 +90,8 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 		// Write completed, now wait for command
 	case <-time.After(10 * time.Second):
 		// Timeout waiting for write to complete
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("timeout waiting for stdin write to complete")
 	}
 
@@ -84,12 +100,18 @@ func RunWithPromptAndRunner(fs afero.Fs, promptName string, cliTool string, runn
 
 	// Return appropriate error
 	if writeErr != nil && waitErr == nil {
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("error writing to %s stdin: %w", cliTool, writeErr)
 	}
 
 	if waitErr != nil {
+		// Log failed execution
+		LogPromptExecution(fs, promptName, cliTool, false)
 		return fmt.Errorf("error running %s: %w", cliTool, waitErr)
 	}
 
+	// Log successful execution
+	LogPromptExecution(fs, promptName, cliTool, true)
 	return nil
 }
