@@ -4,7 +4,7 @@
 all: build
 
 # Build the application
-build:
+build: go-imports 
 	mkdir -p bin
 	@if [ ! -f version.txt ]; then echo "version.txt not found"; exit 1; fi
 	$(eval VERSION := $(shell cat version.txt))
