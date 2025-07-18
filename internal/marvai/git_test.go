@@ -21,7 +21,7 @@ func (m *MockGitCommandRunner) Command(name string, arg ...string) *exec.Cmd {
 	// Track the command that was called
 	cmdArgs := append([]string{name}, arg...)
 	m.commands = append(m.commands, cmdArgs)
-	
+
 	// Create a command that will fail or succeed based on commandError
 	if m.commandError != nil {
 		// Return a command that will fail when Run() is called
@@ -29,7 +29,7 @@ func (m *MockGitCommandRunner) Command(name string, arg ...string) *exec.Cmd {
 			Path: "/bin/false", // This will always fail
 		}
 	}
-	
+
 	// Return a command that will succeed when Run() is called
 	return &exec.Cmd{
 		Path: "/bin/true", // This will always succeed
@@ -76,12 +76,12 @@ func (m *MockGitCommandRunner) WasCommandCalled(name string, args ...string) boo
 
 func TestIsGitRepository(t *testing.T) {
 	tests := []struct {
-		name              string
-		setupFS           func(afero.Fs)
-		setupRunner       func(*MockGitCommandRunner)
-		expectedResult    bool
-		expectedCommands  [][]string
-		description       string
+		name             string
+		setupFS          func(afero.Fs)
+		setupRunner      func(*MockGitCommandRunner)
+		expectedResult   bool
+		expectedCommands [][]string
+		description      string
 	}{
 		{
 			name: "valid git repository with commits",
@@ -111,7 +111,7 @@ func TestIsGitRepository(t *testing.T) {
 				// Git is available, rev-parse --git-dir succeeds, but HEAD check fails
 				runner.lookPathResult = "/usr/bin/git"
 				runner.commandError = nil
-				
+
 				// We need to simulate that HEAD check fails but status succeeds
 				// This is a limitation of our simple mock - in a real test we'd need more sophisticated mocking
 			},
@@ -131,9 +131,9 @@ func TestIsGitRepository(t *testing.T) {
 				// Git is available but shouldn't be called
 				runner.lookPathResult = "/usr/bin/git"
 			},
-			expectedResult: false,
+			expectedResult:   false,
 			expectedCommands: [][]string{},
-			description: "Should return false when .git directory doesn't exist",
+			description:      "Should return false when .git directory doesn't exist",
 		},
 		{
 			name: ".git file (worktree)",
@@ -163,9 +163,9 @@ func TestIsGitRepository(t *testing.T) {
 				// Git is not available
 				runner.lookPathError = fmt.Errorf("git not found")
 			},
-			expectedResult: false,
+			expectedResult:   false,
 			expectedCommands: [][]string{},
-			description: "Should return false when git command is not available",
+			description:      "Should return false when git command is not available",
 		},
 		{
 			name: ".git exists but not a valid git repo",
@@ -194,9 +194,9 @@ func TestIsGitRepository(t *testing.T) {
 				// Git is available but shouldn't be called
 				runner.lookPathResult = "/usr/bin/git"
 			},
-			expectedResult: false,
+			expectedResult:   false,
 			expectedCommands: [][]string{},
-			description: "Should return false when filesystem error occurs",
+			description:      "Should return false when filesystem error occurs",
 		},
 	}
 
@@ -204,31 +204,31 @@ func TestIsGitRepository(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new filesystem for each test
 			fs := afero.NewMemMapFs()
-			
+
 			// Create a new mock runner for each test
 			runner := &MockGitCommandRunner{}
-			
+
 			// Set up the filesystem
 			tt.setupFS(fs)
-			
+
 			// Set up the runner
 			tt.setupRunner(runner)
-			
+
 			// Call the function under test
 			result := isGitRepository(fs, runner)
-			
+
 			// Check the result
 			if result != tt.expectedResult {
 				t.Errorf("isGitRepository() = %v, want %v", result, tt.expectedResult)
 			}
-			
+
 			// Check that expected commands were called
 			for _, expectedCmd := range tt.expectedCommands {
 				if !runner.WasCommandCalled(expectedCmd[0], expectedCmd[1:]...) {
 					t.Errorf("Expected command %v was not called", expectedCmd)
 				}
 			}
-			
+
 			t.Logf("✅ %s", tt.description)
 		})
 	}
@@ -246,18 +246,18 @@ func (s *SequentialMockRunner) Command(name string, arg ...string) *exec.Cmd {
 	// Track the command
 	cmdArgs := append([]string{name}, arg...)
 	s.commands = append(s.commands, cmdArgs)
-	
+
 	// Create command signature
 	cmdSig := name
 	for _, a := range arg {
 		cmdSig += " " + a
 	}
-	
+
 	// Check if this command should fail
 	if err, exists := s.commandResults[cmdSig]; exists && err != nil {
 		return &exec.Cmd{Path: "/bin/false"}
 	}
-	
+
 	return &exec.Cmd{Path: "/bin/true"}
 }
 
@@ -271,45 +271,45 @@ func TestIsGitRepositoryWithSequentialCommands(t *testing.T) {
 	runner := &SequentialMockRunner{
 		lookPathResult: "/usr/bin/git",
 		commandResults: map[string]error{
-			"git rev-parse --git-dir":     nil,                                    // succeeds
-			"git rev-parse --verify HEAD": fmt.Errorf("bad revision 'HEAD'"),     // fails (no commits)
-			"git status --porcelain":      nil,                                    // succeeds
+			"git rev-parse --git-dir":     nil,                               // succeeds
+			"git rev-parse --verify HEAD": fmt.Errorf("bad revision 'HEAD'"), // fails (no commits)
+			"git status --porcelain":      nil,                               // succeeds
 		},
 		commands: [][]string{},
 	}
-	
+
 	// Create filesystem with .git
 	fs := afero.NewMemMapFs()
 	fs.Mkdir(".git", 0755)
-	
+
 	// Test the function
 	result := isGitRepository(fs, runner)
-	
+
 	if !result {
 		t.Error("Expected isGitRepository to return true for fresh repo, got false")
 	}
-	
+
 	// Check that all expected commands were called
 	expectedCommands := []string{
 		"git rev-parse --git-dir",
 		"git rev-parse --verify HEAD",
 		"git status --porcelain",
 	}
-	
+
 	if len(runner.commands) != len(expectedCommands) {
 		t.Errorf("Expected %d commands, got %d", len(expectedCommands), len(runner.commands))
 	}
-	
+
 	for i, expectedCmd := range expectedCommands {
 		if i < len(runner.commands) {
 			actualCmd := runner.commands[i]
 			expectedParts := strings.Fields(expectedCmd)
-			
+
 			if len(actualCmd) != len(expectedParts) {
 				t.Errorf("Command %d: expected %v, got %v", i, expectedParts, actualCmd)
 				continue
 			}
-			
+
 			for j, part := range expectedParts {
 				if actualCmd[j] != part {
 					t.Errorf("Command %d part %d: expected %q, got %q", i, j, part, actualCmd[j])
@@ -317,7 +317,7 @@ func TestIsGitRepositoryWithSequentialCommands(t *testing.T) {
 			}
 		}
 	}
-	
+
 	t.Log("✅ Fresh git repository (no commits) correctly identified")
 }
 
@@ -325,18 +325,17 @@ func TestIsGitRepositoryWithSequentialCommands(t *testing.T) {
 func TestCommandRunnerInterface(t *testing.T) {
 	// Test that OSCommandRunner implements CommandRunner
 	var runner CommandRunner = OSCommandRunner{}
-	
+
 	// Test LookPath
 	_, err := runner.LookPath("git")
 	// We don't care about the result, just that it doesn't panic
 	_ = err
-	
+
 	// Test Command
 	cmd := runner.Command("git", "version")
 	if cmd == nil {
 		t.Error("Command() returned nil")
 	}
-	
+
 	t.Log("✅ CommandRunner interface properly implemented")
 }
-

@@ -126,5 +126,3 @@ func FindCliBinary(cliTool string) string {
 func FindClaudeBinary() string {
 	return FindCliBinary("claude")
 }
-
-

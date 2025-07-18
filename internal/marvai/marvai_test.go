@@ -1008,8 +1008,6 @@ func TestValidatePromptName(t *testing.T) {
 	}
 }
 
-
-
 func TestListInstalledPrompts(t *testing.T) {
 	tests := []struct {
 		name           string

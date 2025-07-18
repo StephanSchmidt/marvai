@@ -29,7 +29,6 @@ func TestFileHandler_CanHandle(t *testing.T) {
 	}
 }
 
-
 func TestFileHandler_LoadContent(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	handler := NewFileHandler(fs)
@@ -87,8 +86,6 @@ func TestFileHandler_GetDisplayName(t *testing.T) {
 		}
 	}
 }
-
-
 
 func TestSourceManager_LoadContent(t *testing.T) {
 	fs := afero.NewMemMapFs()

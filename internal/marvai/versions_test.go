@@ -17,114 +17,114 @@ func TestParseVersion(t *testing.T) {
 	}{
 		// Valid semantic versions
 		{
-			name:      "basic semantic version",
-			version:   "1.2.3",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "basic semantic version",
+			version:    "1.2.3",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with v prefix",
-			version:   "v1.2.3",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with v prefix",
+			version:    "v1.2.3",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with pre-release",
-			version:   "1.2.3-beta",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with pre-release",
+			version:    "1.2.3-beta",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "beta",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with pre-release and v prefix",
-			version:   "v1.2.3-alpha.1",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with pre-release and v prefix",
+			version:    "v1.2.3-alpha.1",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "alpha.1",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with build metadata",
-			version:   "1.2.3+build.1",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with build metadata",
+			version:    "1.2.3+build.1",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with pre-release and build metadata",
-			version:   "1.2.3-beta+build.1",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with pre-release and build metadata",
+			version:    "1.2.3-beta+build.1",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "beta",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "major version only",
-			version:   "1",
-			wantMajor: 1,
-			wantMinor: 0,
-			wantPatch: 0,
+			name:       "major version only",
+			version:    "1",
+			wantMajor:  1,
+			wantMinor:  0,
+			wantPatch:  0,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "major.minor version",
-			version:   "1.2",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 0,
+			name:       "major.minor version",
+			version:    "1.2",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  0,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "zero versions",
-			version:   "0.0.0",
-			wantMajor: 0,
-			wantMinor: 0,
-			wantPatch: 0,
+			name:       "zero versions",
+			version:    "0.0.0",
+			wantMajor:  0,
+			wantMinor:  0,
+			wantPatch:  0,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "large version numbers",
-			version:   "10.20.30",
-			wantMajor: 10,
-			wantMinor: 20,
-			wantPatch: 30,
+			name:       "large version numbers",
+			version:    "10.20.30",
+			wantMajor:  10,
+			wantMinor:  20,
+			wantPatch:  30,
 			wantPreRel: "",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with hyphen in pre-release",
-			version:   "1.2.3-beta-1",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with hyphen in pre-release",
+			version:    "1.2.3-beta-1",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "beta-1",
-			wantError: false,
+			wantError:  false,
 		},
 		{
-			name:      "version with dots in pre-release",
-			version:   "1.2.3-beta.1.2",
-			wantMajor: 1,
-			wantMinor: 2,
-			wantPatch: 3,
+			name:       "version with dots in pre-release",
+			version:    "1.2.3-beta.1.2",
+			wantMajor:  1,
+			wantMinor:  2,
+			wantPatch:  3,
 			wantPreRel: "beta.1.2",
-			wantError: false,
+			wantError:  false,
 		},
-		
+
 		// Invalid versions
 		{
 			name:         "empty version",
@@ -163,20 +163,20 @@ func TestParseVersion(t *testing.T) {
 			errorMessage: "invalid major version",
 		},
 		{
-			name:         "negative version",
-			version:      "-1.2.3",
-			wantMajor:    -1,
-			wantMinor:    2,
-			wantPatch:    3,
-			wantPreRel:   "",
-			wantError:    false,
+			name:       "negative version",
+			version:    "-1.2.3",
+			wantMajor:  -1,
+			wantMinor:  2,
+			wantPatch:  3,
+			wantPreRel: "",
+			wantError:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			major, minor, patch, preRel, err := parseVersion(tt.version)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("parseVersion(%q) expected error containing %q, got nil", tt.version, tt.errorMessage)
@@ -185,12 +185,12 @@ func TestParseVersion(t *testing.T) {
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("parseVersion(%q) unexpected error: %v", tt.version, err)
 				return
 			}
-			
+
 			if major != tt.wantMajor {
 				t.Errorf("parseVersion(%q) major = %d, want %d", tt.version, major, tt.wantMajor)
 			}
@@ -220,22 +220,22 @@ func TestCompareVersions(t *testing.T) {
 		{"equal zero versions", "0.0.0", "0.0.0", 0},
 		{"equal single digit", "1", "1.0.0", 0},
 		{"equal two digit", "1.2", "1.2.0", 0},
-		
+
 		// Major version differences
 		{"major version greater", "2.0.0", "1.9.9", 1},
 		{"major version lesser", "1.0.0", "2.0.0", -1},
 		{"major version zero vs one", "0.1.0", "1.0.0", -1},
-		
+
 		// Minor version differences
 		{"minor version greater", "1.2.0", "1.1.9", 1},
 		{"minor version lesser", "1.1.0", "1.2.0", -1},
 		{"minor version zero vs one", "1.0.0", "1.1.0", -1},
-		
+
 		// Patch version differences
 		{"patch version greater", "1.2.3", "1.2.2", 1},
 		{"patch version lesser", "1.2.2", "1.2.3", -1},
 		{"patch version zero vs one", "1.2.0", "1.2.1", -1},
-		
+
 		// Pre-release versions
 		{"release vs pre-release", "1.2.3", "1.2.3-beta", 1},
 		{"pre-release vs release", "1.2.3-beta", "1.2.3", -1},
@@ -243,22 +243,22 @@ func TestCompareVersions(t *testing.T) {
 		{"pre-release vs pre-release beta", "1.2.3-alpha", "1.2.3-beta", -1},
 		{"pre-release equal", "1.2.3-beta", "1.2.3-beta", 0},
 		{"pre-release version numbers", "1.2.3-beta.1", "1.2.3-beta.2", -1},
-		
+
 		// Mixed scenarios
 		{"different major with pre-release", "2.0.0-alpha", "1.9.9", 1},
 		{"same base different pre-release", "1.2.3-alpha", "1.2.3-beta", -1},
 		{"complex pre-release", "1.2.3-beta.1.2", "1.2.3-beta.1.3", -1},
-		
+
 		// Large version numbers
 		{"large versions", "10.20.30", "10.20.29", 1},
 		{"large major", "100.0.0", "99.99.99", 1},
-		
+
 		// Invalid versions (should fall back to string comparison)
 		{"invalid v1", "invalid", "1.2.3", 1},
 		{"invalid v2", "1.2.3", "invalid", -1},
 		{"both invalid equal", "invalid", "invalid", 0},
 		{"both invalid different", "invalid1", "invalid2", -1},
-		
+
 		// Edge cases
 		{"empty strings", "", "", 0},
 		{"one empty", "", "1.2.3", -1},
@@ -291,7 +291,7 @@ func TestIsVersionUpToDate(t *testing.T) {
 		{"local newer with pre-release", "1.2.4-alpha", "1.2.3", true},
 		{"same pre-release", "1.2.3-beta", "1.2.3-beta", true},
 		{"local newer pre-release", "1.2.3-beta", "1.2.3-alpha", true},
-		
+
 		// Outdated scenarios (local < remote)
 		{"local older patch", "1.2.2", "1.2.3", false},
 		{"local older minor", "1.1.9", "1.2.0", false},
@@ -300,7 +300,7 @@ func TestIsVersionUpToDate(t *testing.T) {
 		{"local older with pre-release", "1.2.3", "1.2.4-alpha", false},
 		{"local older pre-release", "1.2.3-alpha", "1.2.3-beta", false},
 		{"local older pre-release version", "1.2.3-beta.1", "1.2.3-beta.2", false},
-		
+
 		// Edge cases
 		{"empty local version", "", "1.2.3", false},
 		{"empty remote version", "1.2.3", "", true},
@@ -309,14 +309,14 @@ func TestIsVersionUpToDate(t *testing.T) {
 		{"invalid remote version", "1.2.3", "invalid", false},
 		{"both invalid same", "invalid", "invalid", true},
 		{"both invalid different", "invalid1", "invalid2", false},
-		
+
 		// Version prefix handling
 		{"v prefix local", "v1.2.3", "1.2.3", true},
 		{"v prefix remote", "1.2.3", "v1.2.3", true},
 		{"v prefix both", "v1.2.3", "v1.2.3", true},
 		{"v prefix local newer", "v1.2.4", "1.2.3", true},
 		{"v prefix local older", "v1.2.2", "1.2.3", false},
-		
+
 		// Complex scenarios
 		{"major upgrade available", "1.9.9", "2.0.0", false},
 		{"minor upgrade available", "1.2.9", "1.3.0", false},

@@ -69,7 +69,6 @@ func (h *FileHandler) GetDisplayName(source string) string {
 	return filename
 }
 
-
 // MarvaiHandler handles marvai.dev URL sources
 type MarvaiHandler struct {
 	client  *http.Client
@@ -148,9 +147,6 @@ func (h *MarvaiHandler) LoadContent(source string) ([]byte, error) {
 func (h *MarvaiHandler) GetDisplayName(source string) string {
 	return source
 }
-
-
-
 
 // SourceManager manages multiple source handlers
 type SourceManager struct {

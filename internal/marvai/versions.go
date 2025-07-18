@@ -22,7 +22,7 @@ func parseVersion(version string) (major, minor, patch int, preRelease string, e
 	// Regex pattern for semantic versioning: major.minor.patch[-prerelease][+buildmetadata]
 	pattern := `^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9\-\.]+))?(?:\+([a-zA-Z0-9\-\.]+))?$`
 	regex := regexp.MustCompile(pattern)
-	
+
 	matches := regex.FindStringSubmatch(version)
 	if len(matches) < 4 {
 		// Try simpler patterns
@@ -227,4 +227,3 @@ func getInstalledMPromptInfo(fs afero.Fs, filename string) (name, description, a
 
 	return name, description, author, version
 }
-

@@ -9,10 +9,10 @@ import (
 
 func TestIsValidCliBinary(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupFS     func(afero.Fs) string
+		name           string
+		setupFS        func(afero.Fs) string
 		expectedResult bool
-		description string
+		description    string
 	}{
 		{
 			name: "valid executable binary",
@@ -26,7 +26,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for valid executable binary",
+			description:    "Should return true for valid executable binary",
 		},
 		{
 			name: "file does not exist",
@@ -34,7 +34,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return "/nonexistent/path/binary"
 			},
 			expectedResult: false,
-			description: "Should return false when file doesn't exist",
+			description:    "Should return false when file doesn't exist",
 		},
 		{
 			name: "file is not executable",
@@ -48,7 +48,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false for non-executable file",
+			description:    "Should return false for non-executable file",
 		},
 		{
 			name: "path contains path traversal",
@@ -63,7 +63,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return "/usr/bin/../bin/valid-cli"
 			},
 			expectedResult: true,
-			description: "Should return true for paths that resolve to valid locations after cleaning",
+			description:    "Should return true for paths that resolve to valid locations after cleaning",
 		},
 		{
 			name: "binary in dangerous directory /tmp",
@@ -76,7 +76,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false for binaries in /tmp/",
+			description:    "Should return false for binaries in /tmp/",
 		},
 		{
 			name: "binary in dangerous directory /var/tmp",
@@ -89,7 +89,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false for binaries in /var/tmp/",
+			description:    "Should return false for binaries in /var/tmp/",
 		},
 		{
 			name: "binary in dangerous directory /dev/shm",
@@ -102,7 +102,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false for binaries in /dev/shm/",
+			description:    "Should return false for binaries in /dev/shm/",
 		},
 		{
 			name: "valid binary in user home directory",
@@ -121,7 +121,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for valid binary in user directory",
+			description:    "Should return true for valid binary in user directory",
 		},
 		{
 			name: "valid binary in /usr/local/bin",
@@ -140,7 +140,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for valid binary in /usr/local/bin",
+			description:    "Should return true for valid binary in /usr/local/bin",
 		},
 		{
 			name: "path with complex traversal attempt",
@@ -155,7 +155,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return "/usr/bin/../../usr/bin/valid-cli"
 			},
 			expectedResult: true,
-			description: "Should return true for paths that resolve to valid locations after cleaning",
+			description:    "Should return true for paths that resolve to valid locations after cleaning",
 		},
 		{
 			name: "path with literal .. in filename",
@@ -169,7 +169,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false for paths containing '..' even as part of filename",
+			description:    "Should return false for paths containing '..' even as part of filename",
 		},
 		{
 			name: "file exists but is directory",
@@ -183,7 +183,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: false,
-			description: "Should return false when path points to directory",
+			description:    "Should return false when path points to directory",
 		},
 		{
 			name: "binary with minimal executable permissions",
@@ -197,7 +197,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for file with minimal executable permissions",
+			description:    "Should return true for file with minimal executable permissions",
 		},
 		{
 			name: "binary with group/other execute permissions",
@@ -211,7 +211,7 @@ func TestIsValidCliBinary(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for file with group/other execute permissions",
+			description:    "Should return true for file with group/other execute permissions",
 		},
 	}
 
@@ -219,18 +219,18 @@ func TestIsValidCliBinary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new in-memory filesystem for each test
 			fs := afero.NewMemMapFs()
-			
+
 			// Set up the filesystem and get the path to test
 			testPath := tt.setupFS(fs)
-			
+
 			// Call the function under test
 			result := isValidCliBinary(fs, testPath)
-			
+
 			// Check the result
 			if result != tt.expectedResult {
 				t.Errorf("isValidCliBinary(%q) = %v, want %v", testPath, result, tt.expectedResult)
 			}
-			
+
 			t.Logf("✅ %s", tt.description)
 		})
 	}
@@ -238,10 +238,10 @@ func TestIsValidCliBinary(t *testing.T) {
 
 func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupFS     func(afero.Fs) string
+		name           string
+		setupFS        func(afero.Fs) string
 		expectedResult bool
-		description string
+		description    string
 	}{
 		{
 			name: "empty path",
@@ -249,7 +249,7 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 				return ""
 			},
 			expectedResult: false,
-			description: "Should return false for empty path",
+			description:    "Should return false for empty path",
 		},
 		{
 			name: "root path",
@@ -257,7 +257,7 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 				return "/"
 			},
 			expectedResult: false,
-			description: "Should return false for root path",
+			description:    "Should return false for root path",
 		},
 		{
 			name: "path with trailing slash",
@@ -270,7 +270,7 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 				return path + "/"
 			},
 			expectedResult: true,
-			description: "Should return true for valid file even with trailing slash (filepath.Clean normalizes it)",
+			description:    "Should return true for valid file even with trailing slash (filepath.Clean normalizes it)",
 		},
 		{
 			name: "relative path",
@@ -289,7 +289,7 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for valid relative path",
+			description:    "Should return true for valid relative path",
 		},
 		{
 			name: "path in tmp subdirectory should be allowed",
@@ -308,7 +308,7 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 				return path
 			},
 			expectedResult: true,
-			description: "Should return true for path containing 'tmp' but not starting with dangerous directories",
+			description:    "Should return true for path containing 'tmp' but not starting with dangerous directories",
 		},
 	}
 
@@ -316,18 +316,18 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new in-memory filesystem for each test
 			fs := afero.NewMemMapFs()
-			
+
 			// Set up the filesystem and get the path to test
 			testPath := tt.setupFS(fs)
-			
+
 			// Call the function under test
 			result := isValidCliBinary(fs, testPath)
-			
+
 			// Check the result
 			if result != tt.expectedResult {
 				t.Errorf("isValidCliBinary(%q) = %v, want %v", testPath, result, tt.expectedResult)
 			}
-			
+
 			t.Logf("✅ %s", tt.description)
 		})
 	}
@@ -337,12 +337,12 @@ func TestIsValidCliBinaryEdgeCases(t *testing.T) {
 func TestIsValidCliBinaryFileSystemErrors(t *testing.T) {
 	// Create a filesystem that will simulate stat errors
 	fs := afero.NewMemMapFs()
-	
+
 	// Test with a path that doesn't exist
 	result := isValidCliBinary(fs, "/nonexistent/binary")
 	if result != false {
 		t.Errorf("isValidCliBinary() should return false for non-existent file, got %v", result)
 	}
-	
+
 	t.Log("✅ Should handle filesystem errors gracefully")
 }
