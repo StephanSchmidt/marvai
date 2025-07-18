@@ -35,6 +35,10 @@ upgrade-deps:
 lint:
 	golangci-lint run
 
+sec:
+	gosec ./...
+	govulncheck ./...
+
 tag:
 	@if [ ! -f version.txt ]; then echo "version.txt not found"; exit 1; fi
 	$(eval VERSION := $(shell cat version.txt))
