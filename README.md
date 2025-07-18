@@ -139,7 +139,8 @@ Show version information.
 
 ```bash
 $ marvai version
-marvai version 0.1```
+marvai version 0.1
+```
 
 # Features For Prompt Developers
 
