@@ -17,6 +17,9 @@ test:
 	@echo "\n=== COVERAGE SUMMARY ==="
 	@go tool cover -func=coverage/coverage.out | tail -1
 
+go-imports:
+	goimports -w .
+
 # Clean build artifacts
 clean:
 	rm -rf bin coverage
@@ -24,6 +27,13 @@ clean:
 # Install dependencies
 deps:
 	go mod tidy
+
+upgrade-deps:
+	go get -u ./...
+	go mod tidy
+
+lint:
+	golangci-lint run
 
 tag:
 	@if [ ! -f version.txt ]; then echo "version.txt not found"; exit 1; fi
